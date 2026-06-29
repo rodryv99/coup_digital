@@ -1,6 +1,7 @@
 services:
   - type: web
     name: coup-digital-backend
+    plan: free
     runtime: docker
     dockerfilePath: ./apps/backend/Dockerfile
     dockerContext: ./apps/backend
