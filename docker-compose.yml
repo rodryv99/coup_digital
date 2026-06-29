@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: coup_postgres
+    environment:
+      POSTGRES_USER: coup_user
+      POSTGRES_PASSWORD: coup_pass
+      POSTGRES_DB: coup_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:7-alpine
+    container_name: coup_redis
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.dev
+    container_name: coup_backend
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://coup_user:coup_pass@postgres:5432/coup_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=cambia_esto_en_produccion
+      - JWT_REFRESH_SECRET=cambia_esto_tambien_en_produccion
+      - JWT_EXPIRATION=15m
+      - JWT_REFRESH_EXPIRATION=7d
+      - NODE_ENV=development
+    volumes:
+      - ./apps/backend:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+    command: npm run start:dev
+
+volumes:
+  postgres_data:
+  redis_data:

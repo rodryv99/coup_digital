@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coup Digital — Cliente de Prueba</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; padding: 16px; }
+    h1 { color: #ffd700; font-size: 1.4rem; margin-bottom: 12px; }
+    h2 { color: #aaa; font-size: 1rem; margin: 12px 0 8px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+    h3 { color: #ccc; font-size: 0.9rem; margin: 8px 0 4px; }
+    .container { display: grid; grid-template-columns: 290px 1fr 290px; gap: 12px; max-width: 1280px; margin: 0 auto; min-height: 95vh; }
+    .panel { background: #1a1d27; border-radius: 8px; padding: 14px; border: 1px solid #2a2d37; }
+    label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 2px; }
+    input, select { width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid #444; background: #252830; color: #eee; font-size: 0.85rem; margin-bottom: 8px; }
+    button { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin: 2px; transition: all 0.15s; }
+    button:hover { filter: brightness(1.2); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: #4a7cff; color: #fff; }
+    .btn-success { background: #2ecc71; color: #fff; }
+    .btn-danger { background: #e74c3c; color: #fff; }
+    .btn-warning { background: #f39c12; color: #fff; }
+    .btn-action { background: #8e44ad; color: #fff; width: 100%; padding: 8px; margin: 3px 0; }
+    .btn-small { padding: 4px 8px; font-size: 0.75rem; }
+    .btn-ghost { background: #333; color: #ccc; }
+    .status { padding: 6px 10px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 8px; }
+    .status-connected { background: #1a3a2a; color: #2ecc71; }
+    .status-disconnected { background: #3a1a1a; color: #e74c3c; }
+    .status-info { background: #1a2a3a; color: #4a7cff; }
+    .player-card { background: #252830; border-radius: 6px; padding: 8px; margin: 4px 0; font-size: 0.8rem; }
+    .player-card.current-turn { border-left: 3px solid #ffd700; }
+    .player-card.eliminated { opacity: 0.4; text-decoration: line-through; }
+    .player-card.is-me { background: #2a3040; }
+    .card-chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; margin: 1px; font-weight: bold; }
+    .card-Duke { background: #8e44ad; color: #fff; }
+    .card-Assassin { background: #2c3e50; color: #fff; }
+    .card-Captain { background: #2980b9; color: #fff; }
+    .card-Ambassador { background: #27ae60; color: #fff; }
+    .card-Contessa { background: #c0392b; color: #fff; }
+    .card-hidden { background: #555; color: #aaa; }
+    .log-entry { font-size: 0.75rem; padding: 3px 0; border-bottom: 1px solid #222; color: #aaa; }
+    .log-entry:last-child { border: none; }
+    #logContainer { max-height: 260px; overflow-y: auto; }
+    .hand-container { display: flex; gap: 8px; margin: 8px 0; }
+    .hand-card { padding: 12px 16px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+    .hand-card:hover { transform: translateY(-4px); border-color: #ffd700; }
+    .hand-card.selected { border-color: #ffd700; transform: translateY(-4px); }
+    .phase-badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; }
+    .phase-awaiting_action { background: #2ecc71; color: #000; }
+    .phase-awaiting_reaction { background: #f39c12; color: #000; }
+    .phase-awaiting_block_reaction { background: #e67e22; color: #000; }
+    .phase-awaiting_influence_loss { background: #e74c3c; color: #fff; }
+    .phase-awaiting_exchange { background: #3498db; color: #fff; }
+    .phase-finished { background: #95a5a6; color: #000; }
+    .coins { color: #ffd700; font-weight: bold; }
+    .section { margin-bottom: 12px; }
+    .hidden { display: none; }
+    .flex-row { display: flex; gap: 6px; align-items: center; }
+    .flex-wrap { flex-wrap: wrap; }
+    .grow { flex: 1; }
+    .text-center { text-align: center; }
+    .mt-4 { margin-top: 4px; }
+    .mb-8 { margin-bottom: 8px; }
+    #gameActions button { display: block; width: 100%; }
+    .reaction-box { background: #2a1a00; border: 1px solid #f39c12; border-radius: 6px; padding: 10px; margin: 8px 0; }
+    .winner-banner { background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%); color: #000; padding: 16px; border-radius: 8px; text-align: center; font-size: 1.2rem; font-weight: bold; margin: 8px 0; }
+    .tab-bar { display: flex; gap: 4px; margin-bottom: 8px; }
+    .tab { flex: 1; padding: 6px; background: #252830; border-radius: 4px; text-align: center; cursor: pointer; font-size: 0.8rem; color: #888; }
+    .tab.active { background: #4a7cff; color: #fff; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-box { background: #252830; border-radius: 6px; padding: 10px; text-align: center; }
+    .stat-value { font-size: 1.4rem; font-weight: bold; color: #ffd700; }
+    .stat-label { font-size: 0.75rem; color: #888; }
+    .history-item { background: #252830; border-radius: 6px; padding: 8px; margin: 4px 0; font-size: 0.8rem; }
+    .history-item.won { border-left: 3px solid #2ecc71; }
+    .history-item.lost { border-left: 3px solid #e74c3c; }
+  </style>
+</head>
+<body>
+  <h1>Coup Digital - Cliente de Prueba</h1>
+  <div class="container">
+    <div>
+      <div class="panel section">
+        <h2>Autenticacion</h2>
+        <div id="authStatus" class="status status-disconnected">No autenticado</div>
+        <label>Usuario</label><input id="username" placeholder="ej: jugador1">
+        <label>Email</label><input id="email" placeholder="ej: jugador1@test.com">
+        <label>Contrasena</label><input id="password" type="password" value="password123">
+        <div class="flex-row">
+          <button class="btn-primary grow" onclick="register()">Registrar</button>
+          <button class="btn-success grow" onclick="login()">Login</button>
+        </div>
+        <div id="authMsg" class="mt-4" style="font-size:0.8rem; color:#f39c12;"></div>
+      </div>
+      <div class="panel section">
+        <h2>Mesa</h2>
+        <div id="roomStatus" class="status status-info">Sin mesa</div>
+        <div id="roomControls">
+          <h3>Crear mesa</h3>
+          <label>Nombre</label><input id="roomName" value="Mesa de prueba">
+          <label>Max. jugadores</label><input id="maxPlayers" type="number" value="4" min="2" max="12">
+          <label>Modo reaccion</label>
+          <select id="reactionMode"><option value="timer">Temporizador</option><option value="pass">Paso</option></select>
+          <label>Tiempo reaccion (seg)</label><input id="reactionTime" type="number" value="30" min="5" max="60">
+          <button class="btn-primary" style="width:100%" onclick="createRoom()">Crear Mesa</button>
+          <h3 style="margin-top:12px">Unirse por codigo</h3>
+          <div class="flex-row"><input id="joinCode" placeholder="123456" class="grow" style="margin:0"><button class="btn-success" onclick="joinRoom()">Unirse</button></div>
+        </div>
+        <div id="lobbyInfo" class="hidden">
+          <div class="flex-row mb-8"><span style="font-size:0.8rem; color:#888;">Codigo:</span><span id="roomCode" style="font-size:1.1rem; font-weight:bold; color:#ffd700; letter-spacing:2px;"></span></div>
+          <h3>Jugadores en sala</h3>
+          <div id="lobbyPlayers"></div>
+          <button id="startGameBtn" class="btn-success hidden" style="width:100%; margin-top:8px" onclick="startGame()">Iniciar Partida</button>
+        </div>
+      </div>
+      <div class="panel section">
+        <div class="tab-bar">
+          <div class="tab active" id="tabStats" onclick="switchTab('stats')">Stats</div>
+          <div class="tab" id="tabHistory" onclick="switchTab('history')">Historial</div>
+        </div>
+        <div id="statsView">
+          <button class="btn-ghost btn-small" style="width:100%; margin-bottom:8px" onclick="loadStats()">Cargar mis estadisticas</button>
+          <div class="stat-grid" id="statsGrid">
+            <div class="stat-box"><div class="stat-value">-</div><div class="stat-label">Partidas</div></div>
+            <div class="stat-box"><div class="stat-value">-</div><div class="stat-label">Victorias</div></div>
+            <div class="stat-box"><div class="stat-value">-</div><div class="stat-label">Derrotas</div></div>
+            <div class="stat-box"><div class="stat-value">-</div><div class="stat-label">% Victorias</div></div>
+          </div>
+        </div>
+        <div id="historyView" class="hidden">
+          <button class="btn-ghost btn-small" style="width:100%; margin-bottom:8px" onclick="loadHistory()">Cargar historial</button>
+          <div id="historyList"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Partida</h2>
+      <div id="noGame" class="text-center" style="padding:40px; color:#555;">Crea o unete a una mesa para jugar</div>
+      <div id="gameArea" class="hidden">
+        <div class="flex-row mb-8">
+          <span style="font-size:0.8rem; color:#888;">Turno:</span>
+          <span id="turnNumber" style="font-weight:bold;"></span>
+          <span id="phaseBadge" class="phase-badge"></span>
+          <span id="timerDisplay" style="font-size:0.8rem; color:#f39c12; margin-left:auto;"></span>
+        </div>
+        <div id="winnerBanner" class="winner-banner hidden"></div>
+        <div id="myHandSection">
+          <h3>Mi mano</h3>
+          <div id="myHand" class="hand-container"></div>
+          <div id="myCoins" style="font-size:0.9rem;"></div>
+        </div>
+        <div id="gameActions" class="section">
+          <h3>Acciones</h3>
+          <div id="actionButtons">
+            <button class="btn-action" onclick="doAction('income')">Ingresos (+1)</button>
+            <button class="btn-action" onclick="doAction('foreign_aid')">Ayuda Exterior (+2)</button>
+            <button class="btn-action" onclick="doAction('tax')">Impuestos - Duke (+3)</button>
+            <button class="btn-action" onclick="doAction('exchange')">Intercambio - Ambassador</button>
+            <button class="btn-action" onclick="doAction('steal')">Robo - Captain</button>
+            <button class="btn-action" onclick="doAction('assassinate')">Asesinato - Assassin (3 monedas)</button>
+            <button class="btn-action" onclick="doAction('coup')">Golpe de Estado (7 monedas)</button>
+          </div>
+          <div id="targetSelector" class="hidden">
+            <label>Seleccionar objetivo:</label>
+            <select id="targetSelect"></select>
+            <button class="btn-danger" onclick="confirmAction()">Confirmar</button>
+            <button class="btn-small" onclick="cancelTarget()">Cancelar</button>
+          </div>
+        </div>
+        <div id="reactionSection" class="reaction-box hidden">
+          <h3 id="reactionTitle">Ventana de reaccion</h3>
+          <p id="reactionDesc" style="font-size:0.8rem; margin:6px 0;"></p>
+          <div id="reactionButtons" class="flex-row flex-wrap"></div>
+        </div>
+        <div id="influenceLossSection" class="hidden">
+          <h3>Elige que carta perder</h3>
+          <div id="influenceLossCards" class="hand-container"></div>
+        </div>
+        <div id="exchangeSection" class="hidden">
+          <h3>Elige cartas para quedarte</h3>
+          <p style="font-size:0.8rem; color:#888;" id="exchangeInstructions"></p>
+          <div id="exchangeCards" class="hand-container"></div>
+          <button class="btn-success mt-4" onclick="confirmExchange()">Confirmar seleccion</button>
+        </div>
+        <div class="section">
+          <h3>Jugadores</h3>
+          <div id="gamePlayers"></div>
+        </div>
+        <div class="section">
+          <button class="btn-danger btn-small" onclick="abandonGame()">Abandonar partida</button>
+          <button class="btn-ghost btn-small" onclick="reconnectGame()">Simular reconexion</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Log de eventos</h2>
+      <div id="logContainer"></div>
+      <h2 style="margin-top:16px;">WebSocket</h2>
+      <div id="wsStatus" class="status status-disconnected">Desconectado</div>
+      <div id="wsLog" style="max-height:200px; overflow-y:auto; font-size:0.7rem; color:#666;"></div>
+    </div>
+  </div>
+  <script>
+    const API = 'http://localhost:3000/api';
+    let token = null, userId = null, userRole = null, currentUsername = null;
+    let socket = null, currentRoomId = null, currentGameId = null, hostId = null;
+    let myInfluences = [], pendingActionType = null, selectedExchangeCards = [];
+    let gameState = null, timerInterval = null;
+
+    async function register() {
+      const username = document.getElementById('username').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      try {
+        const res = await fetch(API + '/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, email, password }) });
+        const data = await res.json();
+        showAuthMsg(res.ok ? 'Registrado. Ahora haz login.' : (data.message || 'Error'), res.ok ? '#2ecc71' : '#e74c3c');
+      } catch { showAuthMsg('Error de conexion', '#e74c3c'); }
+    }
+    async function login() {
+      const identifier = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      try {
+        const res = await fetch(API + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier, password }) });
+        const data = await res.json();
+        if (res.ok) {
+          token = data.accessToken; userRole = data.role; currentUsername = identifier;
+          userId = JSON.parse(atob(token.split('.')[1])).sub;
+          document.getElementById('authStatus').className = 'status status-connected';
+          document.getElementById('authStatus').textContent = currentUsername + ' (' + userRole + ')';
+          showAuthMsg('');
+          connectWebSocket();
+        } else { showAuthMsg(data.message || 'Error', '#e74c3c'); }
+      } catch { showAuthMsg('Error de conexion', '#e74c3c'); }
+    }
+    function showAuthMsg(msg, color) { const el = document.getElementById('authMsg'); el.textContent = msg; el.style.color = color || '#f39c12'; }
+
+    function connectWebSocket() {
+      socket = io('http://localhost:3000', { transports: ['websocket'] });
+      socket.on('connect', () => { document.getElementById('wsStatus').className = 'status status-connected'; document.getElementById('wsStatus').textContent = 'Conectado (' + socket.id + ')'; wsLog('Conectado'); });
+      socket.on('disconnect', () => { document.getElementById('wsStatus').className = 'status status-disconnected'; document.getElementById('wsStatus').textContent = 'Desconectado'; wsLog('Desconectado'); });
+      socket.on('room_state', (data) => { wsLog('room_state: ' + data.players.length + ' jug.'); renderLobby(data); });
+      socket.on('game_started', (data) => {
+        wsLog('game_started: ' + data.gameId); currentGameId = data.gameId;
+        document.getElementById('noGame').classList.add('hidden');
+        document.getElementById('gameArea').classList.remove('hidden');
+        document.getElementById('lobbyInfo').classList.add('hidden');
+        document.getElementById('roomControls').classList.add('hidden');
+      });
+      socket.on('public_state', (data) => { wsLog('public_state: T' + data.turnNumber + ', ' + data.phase); gameState = data; renderGameState(data); });
+      socket.on('your_hand', (data) => { wsLog('your_hand: ' + data.influences.join(', ')); myInfluences = data.influences; renderMyHand(data); });
+      socket.on('player_kicked', (data) => wsLog('player_kicked: ' + data.userId));
+      socket.on('player_disconnected', (data) => wsLog('player_disconnected: ' + data.socketId));
+      socket.on('player_abandoned', (data) => wsLog('player_abandoned: ' + data.userId));
+      socket.on('game_over', (data) => wsLog('game_over: ganador ' + data.winnerId));
+      socket.on('error', (data) => { wsLog('ERROR: ' + data.message); alert('Error: ' + data.message); });
+      socket.on('action_error', (data) => { wsLog('ACTION_ERROR: ' + data.message); alert('Error: ' + data.message); });
+    }
+    function wsLog(msg) { const el = document.getElementById('wsLog'); el.innerHTML = '<div>[' + new Date().toLocaleTimeString() + '] ' + msg + '</div>' + el.innerHTML; }
+
+    async function createRoom() {
+      if (userRole === 'Free') { alert('Solo Pro o Admin pueden crear mesas.'); return; }
+      const body = { name: document.getElementById('roomName').value, maxPlayers: parseInt(document.getElementById('maxPlayers').value), reactionMode: document.getElementById('reactionMode').value, reactionTimeSeconds: parseInt(document.getElementById('reactionTime').value) };
+      try {
+        const res = await fetch(API + '/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body) });
+        const data = await res.json();
+        if (res.ok) { enterLobby(data); socket.emit('join_room', { roomId: currentRoomId, userId }); } else alert(data.message || 'Error al crear mesa');
+      } catch { alert('Error de conexion'); }
+    }
+    async function joinRoom() {
+      const code = document.getElementById('joinCode').value;
+      try {
+        const res = await fetch(API + '/rooms/join', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ code }) });
+        const data = await res.json();
+        if (res.ok) { enterLobby(data); socket.emit('join_room', { roomId: currentRoomId, userId }); } else alert(data.message || 'Error al unirse');
+      } catch { alert('Error de conexion'); }
+    }
+    function enterLobby(data) {
+      currentRoomId = data.id; hostId = data.hostId;
+      document.getElementById('roomCode').textContent = data.code;
+      document.getElementById('roomStatus').textContent = 'Mesa: ' + data.name + ' (' + data.code + ')';
+      document.getElementById('roomStatus').className = 'status status-connected';
+      document.getElementById('roomControls').classList.add('hidden');
+      document.getElementById('lobbyInfo').classList.remove('hidden');
+      if (hostId === userId) document.getElementById('startGameBtn').classList.remove('hidden');
+    }
+    function renderLobby(data) {
+      document.getElementById('lobbyPlayers').innerHTML = data.players.map(p => '<div class="player-card ' + (p.userId === userId ? 'is-me' : '') + '">' + (p.username || p.userId.slice(0, 8)) + ' ' + (p.userId === hostId ? '[host]' : '') + ' ' + (p.userId === userId ? '(tu)' : '') + '</div>').join('');
+    }
+    function startGame() { socket.emit('start_game', { roomId: currentRoomId, hostId: userId }); }
+
+    function renderGameState(data) {
+      document.getElementById('turnNumber').textContent = '#' + data.turnNumber;
+      const badge = document.getElementById('phaseBadge');
+      const labels = { 'awaiting_action': 'Esperando accion', 'awaiting_reaction': 'Ventana de reaccion', 'awaiting_block_reaction': 'Reaccion a bloqueo', 'awaiting_influence_loss': 'Perdida de influencia', 'awaiting_exchange': 'Intercambio', 'finished': 'Finalizada' };
+      badge.textContent = labels[data.phase] || data.phase;
+      badge.className = 'phase-badge phase-' + data.phase;
+      updateTimer(data.reactionDeadline);
+      const winnerEl = document.getElementById('winnerBanner');
+      if (data.phase === 'finished') {
+        const winner = data.players.find(p => p.userId === data.winnerId);
+        winnerEl.textContent = (winner ? winner.username : 'Desconocido') + ' gana la partida!';
+        winnerEl.classList.remove('hidden');
+        document.getElementById('gameActions').classList.add('hidden');
+      } else { winnerEl.classList.add('hidden'); document.getElementById('gameActions').classList.remove('hidden'); }
+      document.getElementById('gamePlayers').innerHTML = data.players.map(p => {
+        const isCurrentTurn = p.userId === data.currentTurnUserId;
+        const isMe = p.userId === userId;
+        let classes = 'player-card';
+        if (isCurrentTurn) classes += ' current-turn';
+        if (p.eliminated) classes += ' eliminated';
+        if (isMe) classes += ' is-me';
+        const revealed = p.revealed.map(c => '<span class="card-chip card-' + c + '">' + c + '</span>').join('');
+        const hidden = Array(p.influenceCount).fill('<span class="card-chip card-hidden">?</span>').join('');
+        return '<div class="' + classes + '"><div class="flex-row"><strong>' + p.username + '</strong>' + (isMe ? ' (tu)' : '') + (isCurrentTurn ? ' [turno]' : '') + '<span class="coins" style="margin-left:auto;">' + p.coins + ' monedas</span></div><div class="mt-4">' + hidden + ' ' + revealed + '</div></div>';
+      }).join('');
+      const isMyTurn = data.currentTurnUserId === userId && data.phase === 'awaiting_action';
+      document.getElementById('actionButtons').querySelectorAll('button').forEach(b => b.disabled = !isMyTurn);
+      document.getElementById('targetSelect').innerHTML = data.players.filter(p => !p.eliminated && p.userId !== userId).map(p => '<option value="' + p.userId + '">' + p.username + '</option>').join('');
+      renderReactions(data); renderInfluenceLoss(data); renderLog(data.log);
+    }
+    function renderMyHand(data) {
+      document.getElementById('myHand').innerHTML = data.influences.map(c => '<div class="hand-card card-' + c + '">' + c + '</div>').join('') || '<span style="color:#666;">Sin cartas</span>';
+      const me = gameState && gameState.players ? gameState.players.find(p => p.userId === userId) : null;
+      document.getElementById('myCoins').innerHTML = me ? 'Monedas: <span class="coins">' + me.coins + '</span>' : '';
+      if (data.pendingExchange) showExchange(data.influences, data.pendingExchange);
+    }
+    function renderReactions(data) {
+      const section = document.getElementById('reactionSection');
+      const buttons = document.getElementById('reactionButtons');
+      const desc = document.getElementById('reactionDesc');
+      const title = document.getElementById('reactionTitle');
+      if (data.phase === 'awaiting_reaction' && data.pendingAction) {
+        const actor = data.players.find(p => p.userId === data.pendingAction.actorId);
+        const target = data.pendingAction.targetId ? data.players.find(p => p.userId === data.pendingAction.targetId) : null;
+        title.textContent = 'Ventana de reaccion';
+        desc.textContent = (actor ? actor.username : '') + ' declara ' + data.pendingAction.action + (target ? ' contra ' + target.username : '');
+        if (data.pendingAction.actorId !== userId) {
+          const alreadyPassed = data.passedPlayers && data.passedPlayers.includes(userId);
+          let btns = '';
+          if (['tax', 'assassinate', 'steal', 'exchange'].includes(data.pendingAction.action))
+            btns += '<button class="btn-danger" onclick="doChallenge()" ' + (alreadyPassed ? 'disabled' : '') + '>Desafiar</button>';
+          const blockCards = { 'foreign_aid': ['Duke'], 'assassinate': ['Contessa'], 'steal': ['Captain', 'Ambassador'] };
+          (blockCards[data.pendingAction.action] || []).forEach(card => { btns += '<button class="btn-warning" onclick="doBlock(\'' + card + '\')" ' + (alreadyPassed ? 'disabled' : '') + '>Bloquear (' + card + ')</button>'; });
+          btns += '<button class="btn-primary" onclick="doPass()" ' + (alreadyPassed ? 'disabled' : '') + '>' + (alreadyPassed ? 'Pasaste' : 'Pasar') + '</button>';
+          buttons.innerHTML = btns;
+        } else { buttons.innerHTML = '<span style="font-size:0.8rem; color:#888;">Esperando reacciones...</span>'; }
+        section.classList.remove('hidden');
+      } else if (data.phase === 'awaiting_block_reaction' && data.pendingBlock) {
+        const blocker = data.players.find(p => p.userId === data.pendingBlock.blockerId);
+        title.textContent = 'Bloqueo declarado';
+        desc.textContent = (blocker ? blocker.username : '') + ' bloquea con ' + data.pendingBlock.claimedCard;
+        if (data.pendingAction && data.pendingAction.actorId === userId) {
+          buttons.innerHTML = '<button class="btn-danger" onclick="doChallengeBlock()">Desafiar bloqueo</button><button class="btn-primary" onclick="doAcceptBlock()">Aceptar bloqueo</button>';
+        } else { buttons.innerHTML = '<span style="font-size:0.8rem; color:#888;">Esperando decision del actor...</span>'; }
+        section.classList.remove('hidden');
+      } else { section.classList.add('hidden'); }
+    }
+    function renderInfluenceLoss(data) {
+      const section = document.getElementById('influenceLossSection');
+      if (data.phase === 'awaiting_influence_loss' && data.pendingInfluenceLoss && data.pendingInfluenceLoss.userId === userId) {
+        document.getElementById('influenceLossCards').innerHTML = myInfluences.map(c => '<div class="hand-card card-' + c + '" onclick="loseInfluence(\'' + c + '\')">' + c + '</div>').join('');
+        section.classList.remove('hidden');
+      } else { section.classList.add('hidden'); }
+    }
+    function showExchange(currentCards, drawnCards) {
+      selectedExchangeCards = [];
+      const pool = currentCards.concat(drawnCards);
+      const keepCount = currentCards.length;
+      document.getElementById('exchangeInstructions').textContent = 'Tienes ' + pool.length + ' cartas. Elige ' + keepCount + ' para quedarte.';
+      document.getElementById('exchangeCards').innerHTML = pool.map((c, i) => '<div class="hand-card card-' + c + '" id="excard-' + i + '" onclick="toggleExchangeCard(' + i + ', \'' + c + '\')">' + c + '</div>').join('');
+      document.getElementById('exchangeSection').classList.remove('hidden');
+      document.getElementById('influenceLossSection').classList.add('hidden');
+    }
+    function toggleExchangeCard(idx, card) {
+      const el = document.getElementById('excard-' + idx);
+      const keepCount = myInfluences.length;
+      const arrIdx = selectedExchangeCards.findIndex(c => c.idx === idx);
+      if (arrIdx > -1) { selectedExchangeCards.splice(arrIdx, 1); el.classList.remove('selected'); }
+      else { if (selectedExchangeCards.length >= keepCount) return; selectedExchangeCards.push({ idx, card }); el.classList.add('selected'); }
+    }
+    function confirmExchange() {
+      socket.emit('choose_exchange', { roomId: currentRoomId, gameId: currentGameId, userId, cards: selectedExchangeCards.map(c => c.card) });
+      document.getElementById('exchangeSection').classList.add('hidden'); selectedExchangeCards = [];
+    }
+    function renderLog(log) {
+      document.getElementById('logContainer').innerHTML = log.slice().reverse().map(e => '<div class="log-entry"><strong>T' + e.turn + '</strong> ' + e.result + '</div>').join('');
+    }
+    function updateTimer(deadline) {
+      const el = document.getElementById('timerDisplay');
+      if (timerInterval) clearInterval(timerInterval);
+      if (!deadline) { el.textContent = ''; return; }
+      const tick = () => { const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000)); el.textContent = remaining + 's'; if (remaining <= 0) { clearInterval(timerInterval); el.textContent = 'Tiempo!'; } };
+      tick(); timerInterval = setInterval(tick, 1000);
+    }
+    function doAction(action) {
+      if (['coup', 'assassinate', 'steal'].includes(action)) {
+        pendingActionType = action;
+        document.getElementById('targetSelector').classList.remove('hidden');
+        document.getElementById('actionButtons').classList.add('hidden');
+      } else { socket.emit('declare_action', { roomId: currentRoomId, gameId: currentGameId, actorId: userId, action }); }
+    }
+    function confirmAction() {
+      socket.emit('declare_action', { roomId: currentRoomId, gameId: currentGameId, actorId: userId, action: pendingActionType, targetId: document.getElementById('targetSelect').value });
+      cancelTarget();
+    }
+    function cancelTarget() { pendingActionType = null; document.getElementById('targetSelector').classList.add('hidden'); document.getElementById('actionButtons').classList.remove('hidden'); }
+    function doChallenge() { socket.emit('challenge', { roomId: currentRoomId, gameId: currentGameId, challengerId: userId }); }
+    function doBlock(card) { socket.emit('block', { roomId: currentRoomId, gameId: currentGameId, blockerId: userId, card }); }
+    function doPass() { socket.emit('pass', { roomId: currentRoomId, gameId: currentGameId, playerId: userId }); }
+    function doAcceptBlock() { socket.emit('accept_block', { roomId: currentRoomId, gameId: currentGameId, actorId: userId }); }
+    function doChallengeBlock() { socket.emit('challenge_block', { roomId: currentRoomId, gameId: currentGameId, challengerId: userId }); }
+    function loseInfluence(card) { if (confirm('Perder ' + card + '?')) socket.emit('choose_influence', { roomId: currentRoomId, gameId: currentGameId, userId, card }); }
+    function abandonGame() { if (confirm('Abandonar la partida?')) socket.emit('abandon_game', { roomId: currentRoomId, gameId: currentGameId, userId }); }
+    function reconnectGame() { socket.emit('reconnect_game', { roomId: currentRoomId, userId }); wsLog('Solicitando reconexion...'); }
+
+    function switchTab(tab) {
+      document.getElementById('tabStats').classList.toggle('active', tab === 'stats');
+      document.getElementById('tabHistory').classList.toggle('active', tab === 'history');
+      document.getElementById('statsView').classList.toggle('hidden', tab !== 'stats');
+      document.getElementById('historyView').classList.toggle('hidden', tab !== 'history');
+    }
+    async function loadStats() {
+      if (!token) { alert('Primero haz login'); return; }
+      try {
+        const res = await fetch(API + '/stats/me', { headers: { Authorization: 'Bearer ' + token } });
+        const s = await res.json();
+        document.getElementById('statsGrid').innerHTML = '<div class="stat-box"><div class="stat-value">' + s.gamesPlayed + '</div><div class="stat-label">Partidas</div></div><div class="stat-box"><div class="stat-value">' + s.wins + '</div><div class="stat-label">Victorias</div></div><div class="stat-box"><div class="stat-value">' + s.losses + '</div><div class="stat-label">Derrotas</div></div><div class="stat-box"><div class="stat-value">' + Number(s.winRate).toFixed(0) + '%</div><div class="stat-label">% Victorias</div></div>';
+      } catch { alert('Error al cargar stats'); }
+    }
+    async function loadHistory() {
+      if (!token) { alert('Primero haz login'); return; }
+      try {
+        const res = await fetch(API + '/history', { headers: { Authorization: 'Bearer ' + token } });
+        const data = await res.json();
+        const list = document.getElementById('historyList');
+        if (!data.data || data.data.length === 0) { list.innerHTML = '<div style="color:#666; font-size:0.8rem; text-align:center; padding:10px;">Sin partidas finalizadas aun</div>'; return; }
+        list.innerHTML = data.data.map(g => '<div class="history-item ' + (g.won ? 'won' : 'lost') + '"><div class="flex-row"><strong>' + (g.won ? 'Victoria' : 'Derrota') + '</strong><span style="margin-left:auto; color:#888;">' + new Date(g.finishedAt).toLocaleDateString() + '</span></div><div style="font-size:0.75rem; color:#888;">' + g.deckVariant + ' cartas - ' + new Date(g.finishedAt).toLocaleTimeString() + '</div></div>').join('');
+      } catch { alert('Error al cargar historial'); }
+    }
+  </script>
+</body>
+</html>

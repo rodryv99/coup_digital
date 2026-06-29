@@ -1,0 +1,17 @@
+# Entorno
+.env
+*.env.local
+
+# Node
+apps/backend/node_modules/
+apps/backend/dist/
+
+# Flutter
+apps/mobile/.dart_tool/
+apps/mobile/build/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+
+# Docker volumes
+postgres_data/
+redis_data/
