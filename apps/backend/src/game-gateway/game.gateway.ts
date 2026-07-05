@@ -61,7 +61,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       const gameId = await this.redis.get(`room:${data.roomId}:game`);
       if (gameId) {
         const state = await this.gameService.getState(gameId);
-        client.emit('public_state', CoupEngine.publicView(state));
+        client.emit('public_state', await this.publicViewWithAvatars(data.roomId, state));
         client.emit('your_hand', CoupEngine.privateHand(state, data.userId));
       } else {
         await this.emitRoomState(data.roomId);
@@ -269,14 +269,26 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       players: players.map((p) => ({
         userId: p.userId,
         username: p.user?.username,
+        avatar: p.user?.avatar ?? null,
         joinedAt: p.joinedAt,
       })),
     });
   }
 
+  // Adjunta el avatar de cada jugador (desde la BD) a la vista publica del juego.
+  private async publicViewWithAvatars(roomId: string, state: any) {
+    const view: any = CoupEngine.publicView(state);
+    try {
+      const roomPlayers = await this.roomsService.getPlayers(roomId);
+      const avatars = new Map(roomPlayers.map((p) => [p.userId, p.user?.avatar ?? null]));
+      view.players = view.players.map((pl: any) => ({ ...pl, avatar: avatars.get(pl.userId) ?? null }));
+    } catch (_) { /* si falla, la partida sigue sin avatares */ }
+    return view;
+  }
+
   private async broadcastGameState(roomId: string, gameId: string) {
     const state = await this.gameService.getState(gameId);
-    this.server.to(roomId).emit('public_state', CoupEngine.publicView(state));
+    this.server.to(roomId).emit('public_state', await this.publicViewWithAvatars(roomId, state));
 
     const sockets = await this.redis.hgetall(`room:${roomId}:sockets`);
     for (const [socketId, userId] of Object.entries(sockets)) {
