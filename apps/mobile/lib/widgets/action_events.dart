@@ -202,7 +202,7 @@ class ActionBannerOverlayState extends State<ActionBannerOverlay>
     setState(() => _current = e);
     try {
       await _ctrl.forward(from: 0);                    // entrada con rebote
-      await Future.delayed(const Duration(milliseconds: 4800)); // lectura (~5s en pantalla)
+      await Future.delayed(const Duration(milliseconds: 3500)); // lectura (~5s en pantalla)
       if (!mounted) return;
       await _ctrl.animateBack(0, duration: const Duration(milliseconds: 180), curve: Curves.easeIn);
     } catch (_) {}

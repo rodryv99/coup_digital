@@ -31,6 +31,10 @@ export class User {
   @Column({ name: 'fcm_token', nullable: true })
   fcmToken: string;
 
+  // Foto de perfil como data URL base64 (imagen pequena, ~10-20KB)
+  @Column({ type: 'text', nullable: true })
+  avatar: string | null;
+
   @Column({ name: 'failed_attempts', default: 0 })
   failedAttempts: number;
 

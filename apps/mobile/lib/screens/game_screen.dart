@@ -125,6 +125,27 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             _TimerWidget(key: ValueKey(state.reactionDeadline), deadline: state.reactionDeadline!),
           ],
           const Spacer(),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF252830),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.amber.withOpacity(0.5)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.person, color: Colors.amber, size: 14),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(notifier.username ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ]),
+            ),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.help_outline, color: Colors.white70),
             tooltip: 'Ayuda',
@@ -307,17 +328,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 Expanded(child: _reactionLabel(state, notifier)),
               ],
             ),
-            if (!isActor) ...[
-              const SizedBox(height: 8),
-              Wrap(spacing: 6, runSpacing: 6, children: [
-                if (['tax', 'assassinate', 'steal', 'exchange'].contains(state.pendingAction!.action))
-                  _reactionBtn('Desafiar', Colors.red, alreadyPassed ? null : notifier.challenge),
-                ..._blockButtons(state.pendingAction!.action, notifier, alreadyPassed),
-                _reactionBtn(alreadyPassed ? 'Pasaste' : 'Pasar', Colors.blueGrey,
-                    alreadyPassed ? null : notifier.pass),
-              ]),
-            ] else
-              const Text('Esperando reacciones de otros jugadores...', style: TextStyle(color: Colors.white54, fontSize: 13)),
+            const SizedBox(height: 6),
+            if (isActor)
+              const Text('Esperando reacciones de otros jugadores...', style: TextStyle(color: Colors.white54, fontSize: 13))
+            else if (alreadyPassed)
+              const Text('Ya pasaste. Esperando al resto...', style: TextStyle(color: Colors.greenAccent, fontSize: 13))
+            else
+              const Text('Responde con los botones de abajo', style: TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold)),
           ],
           if (state.phase == 'awaiting_block_reaction' && state.pendingBlock != null) ...[
             Row(
@@ -333,14 +350,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 ),
               ],
             ),
-            if (isActor) ...[
-              const SizedBox(height: 8),
-              Row(children: [
-                _reactionBtn('Desafiar bloqueo', Colors.red, notifier.challengeBlock),
-                const SizedBox(width: 8),
-                _reactionBtn('Aceptar', Colors.blueGrey, notifier.acceptBlock),
-              ]),
-            ] else if (!isBlocker)
+            const SizedBox(height: 6),
+            if (isActor)
+              const Text('Responde con los botones de abajo', style: TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold))
+            else if (!isBlocker)
               const Text('El actor decidira si acepta o desafia el bloqueo.', style: TextStyle(color: Colors.white54, fontSize: 13)),
           ],
         ],
@@ -465,7 +478,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 child: CardWidget(
                   cardName: c,
                   faceDown: _cardsHidden && !mustChooseInfluence,
-                  width: 170, height: 240,
+                  width: 140, height: 200,
                   onTap: mustChooseInfluence
                       ? () => _confirmLoseCard(c, notifier)
                       : null,
@@ -474,10 +487,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             else
               ...List.generate(me.influenceCount, (_) => const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8),
-                child: CardWidget(cardName: 'back', faceDown: true, width: 170, height: 240),
+                child: CardWidget(cardName: 'back', faceDown: true, width: 140, height: 200),
               )),
           ]),
           const SizedBox(height: 12),
+          ..._buildReactionControls(state, me, notifier),
           if (notifier.isMyTurn && state.phase == 'awaiting_action')
             _buildActionButtons(state, me, notifier)
           else if (!me.eliminated && state.phase == 'awaiting_action')
@@ -572,16 +586,54 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }).toList();
   }
 
+  // Botones de reaccion en la zona inferior fija: siempre visibles y faciles de tocar.
+  List<Widget> _buildReactionControls(PublicGameState state, PlayerPublicState me, GameNotifier notifier) {
+    if (me.eliminated) return [];
+
+    // Reaccionar a una accion declarada (desafiar / bloquear / pasar)
+    if (state.phase == 'awaiting_reaction' && state.pendingAction != null) {
+      final isActor = state.pendingAction!.actorId == notifier.userId;
+      if (isActor) return [];
+      final alreadyPassed = state.passedPlayers.contains(notifier.userId);
+      return [
+        Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
+          if (['tax', 'assassinate', 'steal', 'exchange'].contains(state.pendingAction!.action))
+            _reactionBtn('Desafiar', Colors.red, alreadyPassed ? null : notifier.challenge),
+          ..._blockButtons(state.pendingAction!.action, notifier, alreadyPassed),
+          _reactionBtn(alreadyPassed ? 'Pasaste' : 'Pasar', Colors.blueGrey,
+              alreadyPassed ? null : notifier.pass),
+        ]),
+        const SizedBox(height: 10),
+      ];
+    }
+
+    // El actor decide sobre un bloqueo (desafiar bloqueo / aceptar)
+    if (state.phase == 'awaiting_block_reaction' && state.pendingBlock != null) {
+      final isActor = state.pendingAction?.actorId == notifier.userId;
+      if (!isActor) return [];
+      return [
+        Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
+          _reactionBtn('Desafiar bloqueo', Colors.red, notifier.challengeBlock),
+          _reactionBtn('Aceptar bloqueo', Colors.blueGrey, notifier.acceptBlock),
+        ]),
+        const SizedBox(height: 10),
+      ];
+    }
+
+    return [];
+  }
+
   Widget _reactionBtn(String label, Color color, VoidCallback? onTap) {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
         backgroundColor: onTap == null ? Colors.grey.shade800 : color,
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        minimumSize: const Size(64, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 12)),
+      child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
     );
   }
 

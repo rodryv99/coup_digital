@@ -6,6 +6,7 @@ class PlayerPublicState {
   final int influenceCount;
   final List<String> revealed;
   final bool eliminated;
+  final String? avatar;
 
   PlayerPublicState({
     required this.userId,
@@ -15,6 +16,7 @@ class PlayerPublicState {
     required this.influenceCount,
     required this.revealed,
     required this.eliminated,
+    this.avatar,
   });
 
   factory PlayerPublicState.fromJson(Map<String, dynamic> j) => PlayerPublicState(
@@ -25,6 +27,7 @@ class PlayerPublicState {
     influenceCount: j['influenceCount'] ?? 0,
     revealed: List<String>.from(j['revealed'] ?? []),
     eliminated: j['eliminated'] ?? false,
+    avatar: j['avatar'],
   );
 }
 

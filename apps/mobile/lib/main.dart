@@ -5,6 +5,7 @@ import 'screens/lobby_screen.dart';
 import 'screens/game_screen.dart';
 import 'screens/stats_screen.dart';
 import 'screens/admin_screen.dart';
+import 'screens/profile_screen.dart';
 import 'services/auth_service.dart';
 import 'providers/game_provider.dart';
 import 'theme/app_theme.dart';
@@ -36,6 +37,7 @@ class CoupApp extends StatelessWidget {
           case '/game': return MaterialPageRoute(builder: (_) => const GameScreen());
           case '/stats': return MaterialPageRoute(builder: (_) => const StatsScreen());
           case '/admin': return MaterialPageRoute(builder: (_) => const AdminScreen());
+          case '/profile': return MaterialPageRoute(builder: (_) => const ProfileScreen());
           default: return MaterialPageRoute(builder: (_) => const LoginScreen());
         }
       },

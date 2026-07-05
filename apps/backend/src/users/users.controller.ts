@@ -29,7 +29,29 @@ export class UsersController {
 
   @Get('me')
   getMe(@CurrentUser() user: User) {
-    return user;
+    const { passwordHash, ...safe } = user as any;
+    return safe;
+  }
+
+  // Perfil propio: nombre visible y/o avatar (permanente)
+  @Patch('me')
+  updateMe(
+    @CurrentUser() user: User,
+    @Body() body: { username?: string; avatar?: string | null },
+  ) {
+    return this.usersService.updateProfile(user.id, {
+      username: body.username,
+      avatar: body.avatar,
+    });
+  }
+
+  // Cambio de contraseña propio
+  @Post('me/password')
+  changeMyPassword(
+    @CurrentUser() user: User,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    return this.usersService.changePassword(user.id, body.currentPassword, body.newPassword);
   }
 
   // CU-30: registrar/actualizar token FCM del dispositivo

@@ -60,6 +60,54 @@ export class UsersService {
     return this.repo.save(user);
   }
 
+  // Perfil propio: nombre visible y/o avatar. Devuelve el usuario sin el hash.
+  async updateProfile(
+    userId: string,
+    changes: { username?: string; avatar?: string | null },
+  ): Promise<Omit<User, 'passwordHash'>> {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    if (changes.username !== undefined) {
+      const nuevo = changes.username.trim();
+      if (nuevo.length < 3 || nuevo.length > 50) {
+        throw new BadRequestException('El nombre debe tener entre 3 y 50 caracteres');
+      }
+      if (nuevo !== user.username) {
+        const taken = await this.repo.findOne({ where: { username: nuevo } });
+        if (taken) throw new ConflictException('Ese nombre de usuario ya está en uso');
+        user.username = nuevo;
+      }
+    }
+
+    if (changes.avatar !== undefined) {
+      if (changes.avatar && changes.avatar.length > 200_000) {
+        throw new BadRequestException('La imagen es demasiado grande');
+      }
+      user.avatar = changes.avatar;
+    }
+
+    const saved = await this.repo.save(user);
+    const { passwordHash, ...safe } = saved;
+    return safe;
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) throw new BadRequestException('La contraseña actual es incorrecta');
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('La nueva contraseña debe tener al menos 8 caracteres');
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.repo.save(user);
+    return { message: 'Contraseña actualizada' };
+  }
+
   async remove(id: string): Promise<void> {
     const user = await this.findById(id);
     if (!user) throw new NotFoundException('Usuario no encontrado');

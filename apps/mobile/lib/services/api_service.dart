@@ -78,6 +78,53 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
+  Future<Map<String, dynamic>> getMe() async {
+    final res = await _request(() async => http.get(
+      Uri.parse('${ApiConfig.baseUrl}/users/me'),
+      headers: await _headers(),
+    ));
+    final data = jsonDecode(res.body);
+    if (res.statusCode != 200) {
+      throw Exception(data['message'] ?? 'Error al cargar perfil');
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> updateProfile({String? username, String? avatar}) async {
+    final res = await _request(() async => http.patch(
+      Uri.parse('${ApiConfig.baseUrl}/users/me'),
+      headers: await _headers(),
+      body: jsonEncode({
+        if (username != null) 'username': username,
+        if (avatar != null) 'avatar': avatar,
+      }),
+    ));
+    final data = jsonDecode(res.body);
+    if (res.statusCode != 200) {
+      throw Exception(data['message'] ?? 'Error al actualizar perfil');
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final res = await _request(() async => http.post(
+      Uri.parse('${ApiConfig.baseUrl}/users/me/password'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      }),
+    ));
+    final data = jsonDecode(res.body);
+    if (res.statusCode != 200 && res.statusCode != 201) {
+      throw Exception(data['message'] ?? 'Error al cambiar contraseña');
+    }
+    return data;
+  }
+
   Future<Map<String, dynamic>> getHealth() async {
     final res = await http.get(Uri.parse('${ApiConfig.baseUrl}/health'));
     return jsonDecode(res.body);
