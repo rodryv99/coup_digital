@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -40,30 +41,55 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0f1117),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1a1d27),
-        title: const Text('Mi perfil', style: TextStyle(color: Colors.amber)),
-        iconTheme: const IconThemeData(color: Colors.white70),
-        bottom: TabBar(
-          controller: _tabs,
-          indicatorColor: Colors.amber,
-          labelColor: Colors.amber,
-          unselectedLabelColor: Colors.white54,
-          tabs: const [Tab(text: 'Estadísticas'), Tab(text: 'Historial')],
+      backgroundColor: CoupTheme.burgundyDeep,
+      body: CoupBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: CoupTheme.panelGradient,
+                  border: Border(bottom: BorderSide(color: CoupTheme.gold.withOpacity(0.5), width: 1.5)),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: CoupTheme.parchmentDim),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Text('Mi perfil', style: CoupTheme.titleMedium),
+                  ],
+                ),
+              ),
+              Container(
+                color: CoupTheme.ink.withOpacity(0.3),
+                child: TabBar(
+                  controller: _tabs,
+                  indicatorColor: CoupTheme.goldBright,
+                  labelColor: CoupTheme.goldBright,
+                  unselectedLabelColor: CoupTheme.parchmentDim,
+                  labelStyle: const TextStyle(fontFamily: CoupTheme.displayFont, fontWeight: FontWeight.bold),
+                  tabs: const [Tab(text: 'Estadísticas'), Tab(text: 'Historial')],
+                ),
+              ),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator(color: CoupTheme.gold))
+                    : TabBarView(
+                        controller: _tabs,
+                        children: [_buildStats(), _buildHistory()],
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-          : TabBarView(
-              controller: _tabs,
-              children: [_buildStats(), _buildHistory()],
-            ),
     );
   }
 
   Widget _buildStats() {
-    if (_stats == null) return const Center(child: Text('Sin datos', style: TextStyle(color: Colors.white54)));
+    if (_stats == null) return Center(child: Text('Sin datos', style: CoupTheme.subtitle));
     final s = _stats!;
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -73,14 +99,14 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
           GridView.count(
             shrinkWrap: true,
             crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
+            mainAxisSpacing: 14,
+            crossAxisSpacing: 14,
             childAspectRatio: 1.4,
             children: [
-              _statCard('${s['gamesPlayed'] ?? 0}', 'Partidas jugadas', Icons.sports_esports),
-              _statCard('${s['wins'] ?? 0}', 'Victorias', Icons.emoji_events, Colors.amber),
-              _statCard('${s['losses'] ?? 0}', 'Derrotas', Icons.sentiment_dissatisfied, Colors.redAccent),
-              _statCard('${(s['winRate'] ?? 0.0).toStringAsFixed(0)}%', '% Victorias', Icons.bar_chart, Colors.green),
+              _statCard('${s['gamesPlayed'] ?? 0}', 'Partidas jugadas', Icons.sports_esports, CoupTheme.parchment),
+              _statCard('${s['wins'] ?? 0}', 'Victorias', Icons.emoji_events, CoupTheme.goldBright),
+              _statCard('${s['losses'] ?? 0}', 'Derrotas', Icons.dangerous_outlined, CoupTheme.blood),
+              _statCard('${(s['winRate'] ?? 0.0).toStringAsFixed(0)}%', '% Victorias', Icons.military_tech, CoupTheme.poison),
             ],
           ),
         ],
@@ -88,49 +114,49 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
     );
   }
 
-  Widget _statCard(String value, String label, IconData icon, [Color? color]) {
-    return Container(
-      decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(12)),
+  Widget _statCard(String value, String label, IconData icon, Color color) {
+    return GoldFrame(
+      padding: const EdgeInsets.all(12),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, color: color ?? Colors.white54, size: 28),
+        Icon(icon, color: color, size: 30),
         const SizedBox(height: 8),
-        Text(value, style: TextStyle(color: color ?? Colors.amber, fontSize: 26, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center),
+        Text(value, style: TextStyle(fontFamily: CoupTheme.displayFont, color: color, fontSize: 28, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(label, style: CoupTheme.label, textAlign: TextAlign.center),
       ]),
     );
   }
 
   Widget _buildHistory() {
     if (_history.isEmpty) {
-      return const Center(child: Text('Sin partidas finalizadas', style: TextStyle(color: Colors.white54)));
+      return Center(child: Text('Sin partidas finalizadas', style: CoupTheme.subtitle));
     }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _history.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (_, i) {
         final g = _history[i];
         final won = g['won'] == true;
         final date = g['finishedAt'] != null
             ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(g['finishedAt']))
             : '';
+        final accent = won ? CoupTheme.goldBright : CoupTheme.blood;
         return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF252830),
+            color: CoupTheme.ink.withOpacity(0.3),
             borderRadius: BorderRadius.circular(10),
-            border: Border(left: BorderSide(color: won ? Colors.green : Colors.redAccent, width: 3)),
+            border: Border(left: BorderSide(color: accent, width: 4)),
           ),
           child: Row(children: [
-            Icon(won ? Icons.emoji_events : Icons.sentiment_dissatisfied,
-                color: won ? Colors.amber : Colors.redAccent, size: 28),
-            const SizedBox(width: 12),
+            Icon(won ? Icons.emoji_events : Icons.dangerous_outlined, color: accent, size: 30),
+            const SizedBox(width: 14),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(won ? 'Victoria' : 'Derrota',
-                  style: TextStyle(color: won ? Colors.green : Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 15)),
+                  style: TextStyle(fontFamily: CoupTheme.displayFont, color: accent, fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 2),
-              Text('${g['deckVariant'] ?? 15} cartas · $date', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              Text('${g['deckVariant'] ?? 15} cartas · $date', style: CoupTheme.label),
             ]),
           ]),
         );

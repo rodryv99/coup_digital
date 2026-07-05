@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
 import '../providers/game_provider.dart';
+import '../theme/app_theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -22,73 +23,75 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0f1117),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 380),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.style, color: Colors.amber, size: 64),
-                const SizedBox(height: 12),
-                const Text('Coup Digital',
-                    style: TextStyle(color: Colors.amber, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                const Text('El juego de la traición',
-                    style: TextStyle(color: Colors.white54, fontSize: 14)),
-                const SizedBox(height: 40),
-
-                // Tab selector
-                Row(
-                  children: [
-                    _tabButton('Iniciar sesión', _isLogin, () => setState(() { _isLogin = true; _error = null; })),
-                    const SizedBox(width: 8),
-                    _tabButton('Registrarse', !_isLogin, () => setState(() { _isLogin = false; _error = null; })),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Formulario
-                _field('Usuario', _usernameCtrl, icon: Icons.person),
-                if (!_isLogin) ...[
-                  const SizedBox(height: 12),
-                  _field('Email', _emailCtrl, icon: Icons.email),
-                ],
-                const SizedBox(height: 12),
-                _field('Contraseña', _passwordCtrl, icon: Icons.lock, obscure: true),
-
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
+      backgroundColor: CoupTheme.burgundyDeep,
+      body: CoupBackground(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Emblema
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    width: 84,
+                    height: 84,
                     decoration: BoxDecoration(
-                      color: Colors.red.shade900.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(8),
+                      gradient: CoupTheme.goldButton,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: CoupTheme.goldBright, width: 2),
+                      boxShadow: [
+                        BoxShadow(color: CoupTheme.goldDark.withOpacity(0.6), blurRadius: 16, spreadRadius: 1),
+                      ],
                     ),
-                    child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+                    child: const Icon(Icons.shield, color: CoupTheme.ink, size: 46),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Coup Digital', style: CoupTheme.titleLarge),
+                  const SizedBox(height: 2),
+                  Text('El juego de la traición', style: CoupTheme.subtitle),
+                  const SizedBox(height: 32),
+
+                  GoldFrame(
+                    padding: const EdgeInsets.all(22),
+                    child: Column(
+                      children: [
+                        // Selector de pestañas
+                        Row(
+                          children: [
+                            _tabButton('Iniciar sesión', _isLogin, () => setState(() { _isLogin = true; _error = null; })),
+                            const SizedBox(width: 10),
+                            _tabButton('Registrarse', !_isLogin, () => setState(() { _isLogin = false; _error = null; })),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+
+                        CoupField(label: 'Alias de Infiltrado', controller: _usernameCtrl, icon: Icons.person_outline),
+                        if (!_isLogin) ...[
+                          const SizedBox(height: 14),
+                          CoupField(label: 'Correo', controller: _emailCtrl, icon: Icons.mail_outline, keyboardType: TextInputType.emailAddress),
+                        ],
+                        const SizedBox(height: 14),
+                        CoupField(label: 'Contraseña', controller: _passwordCtrl, icon: Icons.lock_outline, obscure: true),
+
+                        if (_error != null) ...[
+                          const SizedBox(height: 16),
+                          CoupError(_error!),
+                        ],
+
+                        const SizedBox(height: 24),
+                        GoldButton(
+                          label: _isLogin ? 'Iniciar sesión' : 'Crear cuenta',
+                          icon: _isLogin ? Icons.login : Icons.person_add_alt,
+                          loading: _loading,
+                          onPressed: _loading ? null : _submit,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber.shade700,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: _loading
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                        : Text(_isLogin ? 'Iniciar sesión' : 'Crear cuenta',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -100,38 +103,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
-            color: active ? Colors.amber.shade700 : const Color(0xFF252830),
+            gradient: active ? CoupTheme.goldButton : null,
+            color: active ? null : CoupTheme.ink.withOpacity(0.4),
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: active ? CoupTheme.goldBright : CoupTheme.goldDark.withOpacity(0.5), width: 1.2),
           ),
           child: Text(text,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: active ? Colors.black : Colors.white60,
+                  fontFamily: CoupTheme.displayFont,
+                  color: active ? CoupTheme.ink : CoupTheme.parchmentDim,
                   fontWeight: FontWeight.bold,
                   fontSize: 13)),
         ),
-      ),
-    );
-  }
-
-  Widget _field(String label, TextEditingController ctrl, {IconData? icon, bool obscure = false}) {
-    return TextField(
-      controller: ctrl,
-      obscureText: obscure,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white54),
-        prefixIcon: icon != null ? Icon(icon, color: Colors.white38) : null,
-        filled: true,
-        fillColor: const Color(0xFF252830),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.amber)),
       ),
     );
   }

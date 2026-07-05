@@ -55,9 +55,9 @@ class CardWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBack() {
+Widget _buildBack() {
     return Image.asset(
-      'cards/back.png',
+      'assets/cards/back.png',
       fit: BoxFit.cover,
       width: width,
       height: height,
@@ -68,7 +68,7 @@ class CardWidget extends StatelessWidget {
   Widget _buildFront() {
     final cardType = CardType.fromBackend(cardName);
     return Image.asset(
-      'cards/${cardName.toLowerCase()}.png',
+      'assets/cards/${cardName.toLowerCase()}.png',
       fit: BoxFit.cover,
       width: width,
       height: height,

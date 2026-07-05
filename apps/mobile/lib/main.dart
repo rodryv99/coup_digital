@@ -7,6 +7,7 @@ import 'screens/stats_screen.dart';
 import 'screens/admin_screen.dart';
 import 'services/auth_service.dart';
 import 'providers/game_provider.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const ProviderScope(child: CoupApp()));
@@ -21,10 +22,10 @@ class CoupApp extends StatelessWidget {
       title: 'Coup Digital',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.amber, brightness: Brightness.dark),
+        colorScheme: ColorScheme.fromSeed(seedColor: CoupTheme.gold, brightness: Brightness.dark),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF0f1117),
-        fontFamily: 'Segoe UI',
+        scaffoldBackgroundColor: CoupTheme.burgundyDeep,
+        fontFamily: 'serif',
       ),
       initialRoute: '/',
       onGenerateRoute: (settings) {
@@ -81,8 +82,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            backgroundColor: Color(0xFF0f1117),
-            body: Center(child: CircularProgressIndicator(color: Colors.amber)),
+            backgroundColor: CoupTheme.burgundyDeep,
+            body: Center(child: CircularProgressIndicator(color: CoupTheme.gold)),
           );
         }
         switch (snap.data) {

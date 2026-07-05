@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CoupEngine } from './engine/coup-engine';
@@ -11,6 +11,7 @@ import { StatsService } from '../stats/stats.service';
 
 @Injectable()
 export class GameService {
+  private readonly logger = new Logger('GameService');
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private onReactionTimeout?: (gameId: string, roomId: string) => void;
 
@@ -72,15 +73,30 @@ export class GameService {
 
     if (state.phase === 'finished') {
       this.clearTimer(state.gameId);
-      await this.gameRepo.update(state.gameId, {
-        finishedAt: new Date(),
-        winnerId: state.winnerId,
-      });
-      await this.historyService.persistGameLog(state.gameId, state.log);
-      await this.statsService.recordGameResult(
-        state.players.map((p) => ({ userId: p.userId, won: p.userId === state.winnerId })),
-        state.players.length,
-      );
+      // La persistencia en PostgreSQL (historial/estadisticas) es secundaria:
+      // si falla NO debe romper el flujo de la partida en vivo. Cada bloque
+      // se aisla para que un error en uno no impida los demas ni el broadcast.
+      try {
+        await this.gameRepo.update(state.gameId, {
+          finishedAt: new Date(),
+          winnerId: state.winnerId,
+        });
+      } catch (err: any) {
+        this.logger.error(`No se pudo actualizar games (${state.gameId}): ${err.message}`);
+      }
+      try {
+        await this.historyService.persistGameLog(state.gameId, state.log);
+      } catch (err: any) {
+        this.logger.error(`No se pudo persistir el historial (${state.gameId}): ${err.message}`);
+      }
+      try {
+        await this.statsService.recordGameResult(
+          state.players.map((p) => ({ userId: p.userId, won: p.userId === state.winnerId })),
+          state.players.length,
+        );
+      } catch (err: any) {
+        this.logger.error(`No se pudieron actualizar estadisticas (${state.gameId}): ${err.message}`);
+      }
     }
   }
 

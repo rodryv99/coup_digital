@@ -6,6 +6,7 @@ import '../models/game_state.dart';
 import '../models/card_type.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/help_dialog.dart';
+import '../widgets/action_events.dart';
 
 String accionEnEspanol(String action) {
   switch (action) {
@@ -33,6 +34,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   List<String> _selectedExchangeCards = [];
   int _exchangeKeepCount = 0;
   bool _gameOverShown = false;
+  int _lastLogLen = -1;
+  final GlobalKey<ActionBannerOverlayState> _bannerKey = GlobalKey<ActionBannerOverlayState>();
 
   @override
   void initState() {
@@ -53,6 +56,22 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final gameState = ref.watch(gameProvider);
     final notifier = ref.read(gameProvider.notifier);
 
+    // Detecta nuevas entradas del log y dispara los banners animados.
+    ref.listen<GameState?>(gameProvider, (prev, next) {
+      if (next == null) return;
+      if (prev == null || _lastLogLen < 0) {
+        _lastLogLen = next.log.length; // primera carga o reconexion: sin animar historial
+        return;
+      }
+      if (next.log.length > _lastLogLen) {
+        for (var i = _lastLogLen; i < next.log.length; i++) {
+          final ev = eventFromLog(next.log[i], next, (id) => _playerName(next, id));
+          if (ev != null) _bannerKey.currentState?.enqueue(ev);
+        }
+        _lastLogLen = next.log.length;
+      }
+    });
+
     // Respaldo: si el estado dice 'finished' y aun no mostramos el dialogo, mostrarlo.
     if (gameState != null && gameState.phase == 'finished' && !_gameOverShown) {
       _gameOverShown = true;
@@ -71,14 +90,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0f1117),
       body: SafeArea(
-        child: gameState == null
-            ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-            : Column(
-                children: [
-                  _buildTopBar(gameState, notifier),
-                  Expanded(child: _buildGameBody(gameState, notifier)),
-                ],
-              ),
+        child: Stack(
+          children: [
+            gameState == null
+                ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+                : Column(
+                    children: [
+                      _buildTopBar(gameState, notifier),
+                      Expanded(child: _buildGameBody(gameState, notifier)),
+                    ],
+                  ),
+            ActionBannerOverlay(key: _bannerKey),
+          ],
+        ),
       ),
     );
   }
@@ -127,9 +151,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     return Column(
       children: [
         SizedBox(
-          height: 175,
+          height: 192,
           child: _buildOpponents(state, notifier),
         ),
+        _buildFeedStrip(state),
         Expanded(
           child: SingleChildScrollView(
             child: Column(
@@ -206,6 +231,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             const SizedBox(width: 4),
             Text('${player.coins}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
           ]),
+          if (_passStatus(state, player) != null) ...[
+            const SizedBox(height: 3),
+            _passStatus(state, player)!,
+          ],
           const SizedBox(height: 6),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             for (var i = 0; i < player.influenceCount; i++)
@@ -570,6 +599,117 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
       child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  // Indicador de quien ya paso durante la fase de reaccion.
+  Widget? _passStatus(PublicGameState state, PlayerPublicState player) {
+    if (state.phase != 'awaiting_reaction' || player.eliminated) return null;
+    if (state.pendingAction?.actorId == player.userId) return null; // el actor no reacciona
+    final passed = state.passedPlayers.contains(player.userId);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: passed ? Colors.green.withOpacity(0.18) : Colors.white10,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: passed ? Colors.greenAccent : Colors.white24, width: 1),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(passed ? Icons.check_circle : Icons.hourglass_top,
+            color: passed ? Colors.greenAccent : Colors.white38, size: 11),
+        const SizedBox(width: 3),
+        Text(passed ? 'Paso' : 'Pensando',
+            style: TextStyle(
+                color: passed ? Colors.greenAccent : Colors.white38,
+                fontSize: 9, fontWeight: FontWeight.bold)),
+      ]),
+    );
+  }
+
+  // Tira con las ultimas acciones + boton de historial completo.
+  Widget _buildFeedStrip(PublicGameState state) {
+    if (state.log.isEmpty) return const SizedBox.shrink();
+    final recent = state.log.length <= 3 ? state.log : state.log.sublist(state.log.length - 3);
+    return Container(
+      height: 30,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              children: recent.reversed.map((e) {
+                final txt = '${_playerName(state, e.actorId)}: ${traducirTexto(e.result)}';
+                return Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF252830),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Text(txt,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white60, fontSize: 11)),
+                );
+              }).toList(),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.history, color: Colors.amber, size: 20),
+            tooltip: 'Historial de la partida',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 30),
+            onPressed: () => _showFullLog(state),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFullLog(PublicGameState state) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1a1d27),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Historial de la partida',
+                style: TextStyle(color: Colors.amber, fontSize: 17, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Expanded(
+              child: ListView.separated(
+                reverse: true,
+                itemCount: state.log.length,
+                separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 10),
+                itemBuilder: (_, i) {
+                  final e = state.log[state.log.length - 1 - i];
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(6)),
+                        child: Text('T${e.turn}', style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text('${_playerName(state, e.actorId)}: ${traducirTexto(e.result)}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

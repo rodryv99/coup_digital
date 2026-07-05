@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/game_provider.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 
 class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({super.key});
@@ -38,18 +39,47 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     ref.watch(gameProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0f1117),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1a1d27),
-        title: const Text('Coup Digital', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.admin_panel_settings, color: Colors.amber),
-              tooltip: 'Gestion de usuarios',
+      backgroundColor: CoupTheme.burgundyDeep,
+      body: CoupBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              _topBar(notifier),
+              Expanded(
+                child: _inLobby ? _buildWaitingRoom(notifier) : _buildJoinCreate(notifier),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _topBar(GameNotifier notifier) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: CoupTheme.panelGradient,
+        border: Border(bottom: BorderSide(color: CoupTheme.gold.withOpacity(0.5), width: 1.5)),
+      ),
+      child: Row(
+        children: [
+          Text('Coup Digital', style: CoupTheme.titleMedium),
+          const Spacer(),
+          if ((notifier.role ?? '') == 'Admin')
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings, color: CoupTheme.goldBright),
+              tooltip: 'Gestión de usuarios',
               onPressed: () => Navigator.pushNamed(context, '/admin'),
+            ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart, color: CoupTheme.goldBright),
+            tooltip: 'Mi perfil',
+            onPressed: () => Navigator.pushNamed(context, '/stats'),
           ),
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white70),
+            icon: const Icon(Icons.logout, color: CoupTheme.parchmentDim),
+            tooltip: 'Salir',
             onPressed: () async {
               await _auth.logout();
               notifier.socket.disconnect();
@@ -58,110 +88,131 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           ),
         ],
       ),
-      body: _inLobby ? _buildWaitingRoom(notifier) : _buildJoinCreate(notifier),
     );
   }
 
   Widget _buildJoinCreate(GameNotifier notifier) {
+    final isFree = notifier.role == 'Free';
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Hola, ${notifier.username ?? ''}',
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-          Text('Rol: ${notifier.role ?? ''}',
-              style: TextStyle(color: notifier.role == 'Free' ? Colors.orange : Colors.green, fontSize: 13)),
-          const SizedBox(height: 24),
-
-          if (notifier.role != 'Free') ...[
-            const Text('Crear mesa', style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _field('Nombre de la mesa', _roomNameCtrl),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Máx. jugadores', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                Slider(
-                  value: _maxPlayers.toDouble(),
-                  min: 2, max: 12, divisions: 10,
-                  activeColor: Colors.amber,
-                  label: _maxPlayers.toString(),
-                  onChanged: (v) => setState(() => _maxPlayers = v.toInt()),
-                ),
-              ])),
-              Text('$_maxPlayers', style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)),
-            ]),
-            Row(children: [
-              const Text('Modo reacción:', style: TextStyle(color: Colors.white60, fontSize: 13)),
-              const SizedBox(width: 12),
-              ChoiceChip(label: const Text('Timer'), selected: _reactionMode == 'timer',
-                  selectedColor: Colors.amber, labelStyle: TextStyle(color: _reactionMode == 'timer' ? Colors.black : Colors.white70),
-                  onSelected: (_) => setState(() => _reactionMode = 'timer')),
-              const SizedBox(width: 8),
-              ChoiceChip(label: const Text('Paso'), selected: _reactionMode == 'pass',
-                  selectedColor: Colors.amber, labelStyle: TextStyle(color: _reactionMode == 'pass' ? Colors.black : Colors.white70),
-                  onSelected: (_) => setState(() => _reactionMode = 'pass')),
-            ]),
-            if (_reactionMode == 'timer') ...[
-              const SizedBox(height: 8),
-              Row(children: [
-                const Text('Tiempo:', style: TextStyle(color: Colors.white60, fontSize: 13)),
-                Expanded(child: Slider(
-                  value: _reactionTime.toDouble(), min: 5, max: 60, divisions: 11,
-                  activeColor: Colors.amber, label: '${_reactionTime}s',
-                  onChanged: (v) => setState(() => _reactionTime = v.toInt()),
-                )),
-                Text('${_reactionTime}s', style: const TextStyle(color: Colors.amber)),
-              ]),
+          Text('Hola, ${notifier.username ?? ''}', style: CoupTheme.titleMedium),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Icon(Icons.shield_moon, size: 14, color: isFree ? CoupTheme.parchmentDim : CoupTheme.goldBright),
+              const SizedBox(width: 6),
+              Text('Rango: ${notifier.role ?? ''}',
+                  style: TextStyle(color: isFree ? CoupTheme.parchmentDim : CoupTheme.goldBright, fontSize: 13)),
             ],
-            const SizedBox(height: 12),
-            SizedBox(width: double.infinity, child: ElevatedButton.icon(
-              onPressed: _loading ? null : () => _createRoom(notifier),
-              icon: const Icon(Icons.add),
-              label: const Text('Crear Mesa'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber.shade700, foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          const SizedBox(height: 22),
+
+          if (!isFree) ...[
+            GoldFrame(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.add_circle_outline, color: CoupTheme.goldBright, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Crear mesa', style: CoupTheme.titleMedium.copyWith(fontSize: 18)),
+                  ]),
+                  const SizedBox(height: 16),
+                  CoupField(label: 'Nombre de la mesa', controller: _roomNameCtrl, icon: Icons.edit_outlined),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Máx. jugadores', style: CoupTheme.label),
+                      Slider(
+                        value: _maxPlayers.toDouble(),
+                        min: 2, max: 12, divisions: 10,
+                        activeColor: CoupTheme.goldBright,
+                        inactiveColor: CoupTheme.goldDark.withOpacity(0.4),
+                        label: _maxPlayers.toString(),
+                        onChanged: (v) => setState(() => _maxPlayers = v.toInt()),
+                      ),
+                    ])),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: CoupTheme.ink.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: CoupTheme.gold.withOpacity(0.5)),
+                      ),
+                      child: Text('$_maxPlayers', style: const TextStyle(color: CoupTheme.goldBright, fontSize: 18, fontWeight: FontWeight.bold)),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Text('Modo reacción:', style: CoupTheme.label),
+                    const SizedBox(width: 12),
+                    _choiceChip('Timer', _reactionMode == 'timer', () => setState(() => _reactionMode = 'timer')),
+                    const SizedBox(width: 8),
+                    _choiceChip('Paso', _reactionMode == 'pass', () => setState(() => _reactionMode = 'pass')),
+                  ]),
+                  if (_reactionMode == 'timer') ...[
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Text('Tiempo:', style: CoupTheme.label),
+                      Expanded(child: Slider(
+                        value: _reactionTime.toDouble(), min: 5, max: 60, divisions: 11,
+                        activeColor: CoupTheme.goldBright,
+                        inactiveColor: CoupTheme.goldDark.withOpacity(0.4),
+                        label: '${_reactionTime}s',
+                        onChanged: (v) => setState(() => _reactionTime = v.toInt()),
+                      )),
+                      Text('${_reactionTime}s', style: const TextStyle(color: CoupTheme.goldBright)),
+                    ]),
+                  ],
+                  const SizedBox(height: 16),
+                  GoldButton(
+                    label: 'Crear Mesa',
+                    icon: Icons.add,
+                    loading: _loading,
+                    onPressed: _loading ? null : () => _createRoom(notifier),
+                  ),
+                ],
               ),
-            )),
-            const Divider(color: Colors.white12, height: 40),
+            ),
+            const SizedBox(height: 20),
           ],
 
-          const Text('Unirse por código', style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: TextField(
-              controller: _codeCtrl,
-              style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 4, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                hintText: '000000',
-                hintStyle: const TextStyle(color: Colors.white24, letterSpacing: 4),
-                filled: true, fillColor: const Color(0xFF252830),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.amber)),
-              ),
-            )),
-            const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed: _loading ? null : () => _joinRoom(notifier),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Unirse'),
+          GoldFrame(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.vpn_key_outlined, color: CoupTheme.goldBright, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Unirse por código', style: CoupTheme.titleMedium.copyWith(fontSize: 18)),
+                ]),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: CoupField(
+                    label: '',
+                    hint: '000000',
+                    controller: _codeCtrl,
+                    keyboardType: TextInputType.number,
+                    textStyle: const TextStyle(color: CoupTheme.parchment, fontSize: 22, letterSpacing: 6, fontWeight: FontWeight.bold),
+                  )),
+                  const SizedBox(width: 12),
+                  GoldButton(
+                    label: 'Unirse',
+                    expand: false,
+                    loading: _loading,
+                    onPressed: _loading ? null : () => _joinRoom(notifier),
+                  ),
+                ]),
+              ],
             ),
-          ]),
+          ),
 
           if (_error != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.red.shade900.withOpacity(0.3), borderRadius: BorderRadius.circular(8)),
-              child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
-            ),
+            const SizedBox(height: 16),
+            CoupError(_error!),
           ],
         ],
       ),
@@ -174,18 +225,22 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       child: Column(
         children: [
           Row(children: [
-            const Text('Sala de espera', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            Text('Sala de espera', style: CoupTheme.titleMedium),
             const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: CoupTheme.ink.withOpacity(0.45),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: CoupTheme.gold.withOpacity(0.6)),
+              ),
               child: Row(children: [
-                const Text('Código: ', style: TextStyle(color: Colors.white54, fontSize: 14)),
-                Text(notifier.roomCode ?? '', style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 3)),
+                Text('Código: ', style: CoupTheme.label),
+                Text(notifier.roomCode ?? '', style: const TextStyle(color: CoupTheme.goldBright, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 4)),
               ]),
             ),
           ]),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Expanded(
             child: ListView.builder(
               itemCount: notifier.lobbyPlayers.length,
@@ -194,26 +249,38 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                 final isMe = p['userId'] == notifier.userId;
                 final isHost = p['userId'] == notifier.hostId;
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
+                  margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isMe ? const Color(0xFF2a3040) : const Color(0xFF252830),
+                    gradient: isMe ? CoupTheme.panelGradient : null,
+                    color: isMe ? null : CoupTheme.ink.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(10),
-                    border: isMe ? Border.all(color: Colors.amber.shade700, width: 1) : null,
+                    border: Border.all(
+                      color: isMe ? CoupTheme.goldBright : CoupTheme.goldDark.withOpacity(0.4),
+                      width: isMe ? 1.5 : 1,
+                    ),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.person, color: Colors.white54),
+                    Container(
+                      width: 38, height: 38,
+                      decoration: BoxDecoration(
+                        color: CoupTheme.ink.withOpacity(0.5),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: isHost ? CoupTheme.goldBright : CoupTheme.goldDark.withOpacity(0.6)),
+                      ),
+                      child: Icon(isHost ? Icons.workspace_premium : Icons.person, color: isHost ? CoupTheme.goldBright : CoupTheme.parchmentDim, size: 20),
+                    ),
                     const SizedBox(width: 12),
-                    Text(p['username'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 15)),
-                    if (isMe) const Text(' (tú)', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                    Text(p['username'] ?? '', style: const TextStyle(color: CoupTheme.parchment, fontSize: 16, fontWeight: FontWeight.w600)),
+                    if (isMe) Text(' (tú)', style: CoupTheme.label),
                     if (isHost) ...[
                       const SizedBox(width: 8),
-                      const Icon(Icons.star, color: Colors.amber, size: 16),
+                      const Icon(Icons.star, color: CoupTheme.goldBright, size: 16),
                     ],
                     const Spacer(),
                     if (notifier.isHost && !isMe && !isHost)
                       IconButton(
-                        icon: const Icon(Icons.remove_circle, color: Colors.redAccent, size: 20),
+                        icon: const Icon(Icons.remove_circle_outline, color: CoupTheme.blood, size: 22),
                         onPressed: () => notifier.socket.kickPlayer(notifier.roomId!, notifier.userId!, p['userId']),
                       ),
                   ]),
@@ -222,32 +289,51 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ),
           ),
           if (notifier.isHost)
-            SizedBox(width: double.infinity, child: ElevatedButton.icon(
+            GoldButton(
+              label: 'Iniciar Partida',
+              icon: Icons.play_arrow,
               onPressed: notifier.lobbyPlayers.length >= 2 ? notifier.startGame : null,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Iniciar Partida', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ))
+            )
           else
-            const Text('Esperando que el anfitrión inicie la partida...', style: TextStyle(color: Colors.white54)),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: CoupTheme.ink.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: CoupTheme.goldDark.withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: CoupTheme.gold),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('Esperando al anfitrión...', style: CoupTheme.subtitle),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl) {
-    return TextField(
-      controller: ctrl,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label, labelStyle: const TextStyle(color: Colors.white54),
-        filled: true, fillColor: const Color(0xFF252830),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.amber)),
+  Widget _choiceChip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        decoration: BoxDecoration(
+          gradient: selected ? CoupTheme.goldButton : null,
+          color: selected ? null : CoupTheme.ink.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? CoupTheme.goldBright : CoupTheme.goldDark.withOpacity(0.5)),
+        ),
+        child: Text(label, style: TextStyle(
+          color: selected ? CoupTheme.ink : CoupTheme.parchmentDim,
+          fontWeight: FontWeight.bold, fontSize: 13)),
       ),
     );
   }

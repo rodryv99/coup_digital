@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/admin_service.dart';
+import '../theme/app_theme.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -43,77 +44,77 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0f1117),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1a1d27),
-        title: const Text('Gestion de usuarios', style: TextStyle(color: Colors.amber)),
-        iconTheme: const IconThemeData(color: Colors.white70),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh, color: Colors.white70), onPressed: _load),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              controller: _searchCtrl,
-              style: const TextStyle(color: Colors.white),
-              onSubmitted: (_) => _load(),
-              decoration: InputDecoration(
-                hintText: 'Buscar por nombre o email...',
-                hintStyle: const TextStyle(color: Colors.white38),
-                prefixIcon: const Icon(Icons.search, color: Colors.white38),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.arrow_forward, color: Colors.amber),
-                  onPressed: _load,
+      backgroundColor: CoupTheme.burgundyDeep,
+      body: CoupBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: CoupTheme.panelGradient,
+                  border: Border(bottom: BorderSide(color: CoupTheme.gold.withOpacity(0.5), width: 1.5)),
                 ),
-                filled: true,
-                fillColor: const Color(0xFF252830),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: CoupTheme.parchmentDim),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Text('Gestión de usuarios', style: CoupTheme.titleMedium.copyWith(fontSize: 20)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.refresh, color: CoupTheme.goldBright), onPressed: _load),
+                  ],
+                ),
               ),
-            ),
-          ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.red.shade900.withOpacity(0.3), borderRadius: BorderRadius.circular(8)),
-                child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: CoupField(
+                  label: '',
+                  hint: 'Buscar por nombre o email...',
+                  controller: _searchCtrl,
+                  icon: Icons.search,
+                  onSubmitted: (_) => _load(),
+                ),
               ),
-            ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-                : _users.isEmpty
-                    ? const Center(child: Text('Sin usuarios', style: TextStyle(color: Colors.white54)))
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _users.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (_, i) => _userCard(_users[i]),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: CoupError(_error!),
+                ),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator(color: CoupTheme.gold))
+                    : _users.isEmpty
+                        ? Center(child: Text('Sin usuarios', style: CoupTheme.subtitle))
+                        : ListView.separated(
+                            padding: const EdgeInsets.all(12),
+                            itemCount: _users.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (_, i) => _userCard(_users[i]),
+                          ),
+              ),
+              if (_total > 20)
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left, color: CoupTheme.parchmentDim),
+                        onPressed: _page > 1 ? () { setState(() => _page--); _load(); } : null,
                       ),
+                      Text('Página $_page', style: const TextStyle(color: CoupTheme.parchment)),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right, color: CoupTheme.parchmentDim),
+                        onPressed: _page * 20 < _total ? () { setState(() => _page++); _load(); } : null,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
-          if (_total > 20)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left, color: Colors.white70),
-                    onPressed: _page > 1 ? () { setState(() => _page--); _load(); } : null,
-                  ),
-                  Text('Pagina $_page', style: const TextStyle(color: Colors.white70)),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right, color: Colors.white70),
-                    onPressed: _page * 20 < _total ? () { setState(() => _page++); _load(); } : null,
-                  ),
-                ],
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -125,25 +126,30 @@ class _AdminScreenState extends State<AdminScreen> {
 
     Color roleColor;
     switch (role) {
-      case 'Admin': roleColor = Colors.redAccent; break;
-      case 'Pro': roleColor = Colors.amber; break;
-      default: roleColor = Colors.white54;
+      case 'Admin': roleColor = CoupTheme.blood; break;
+      case 'Pro': roleColor = CoupTheme.goldBright; break;
+      default: roleColor = CoupTheme.parchmentDim;
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF252830),
+        color: CoupTheme.ink.withOpacity(0.3),
         borderRadius: BorderRadius.circular(10),
-        border: blocked ? Border.all(color: Colors.red.shade900) : null,
+        border: Border.all(color: blocked ? CoupTheme.blood.withOpacity(0.7) : CoupTheme.goldDark.withOpacity(0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                backgroundColor: roleColor.withOpacity(0.2),
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: roleColor.withOpacity(0.18),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: roleColor.withOpacity(0.6)),
+                ),
                 child: Icon(Icons.person, color: roleColor, size: 20),
               ),
               const SizedBox(width: 12),
@@ -152,33 +158,32 @@ class _AdminScreenState extends State<AdminScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(user['username'] ?? '',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text(user['email'] ?? '',
-                        style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                        style: const TextStyle(color: CoupTheme.parchment, fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text(user['email'] ?? '', style: CoupTheme.label),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: roleColor.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: roleColor.withOpacity(0.18), borderRadius: BorderRadius.circular(8), border: Border.all(color: roleColor.withOpacity(0.5))),
                 child: Text(role, style: TextStyle(color: roleColor, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
               if (blocked) ...[
                 const SizedBox(width: 6),
-                const Icon(Icons.block, color: Colors.redAccent, size: 18),
+                const Icon(Icons.block, color: CoupTheme.blood, size: 18),
               ],
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              _smallBtn('Cambiar rol', Icons.swap_vert, Colors.blue, () => _changeRole(user)),
+              _smallBtn('Cambiar rol', Icons.swap_vert, CoupTheme.gold, () => _changeRole(user)),
               blocked
-                  ? _smallBtn('Activar', Icons.check_circle, Colors.green, () => _setStatus(user['id'], 'active'))
-                  : _smallBtn('Bloquear', Icons.block, Colors.orange, () => _setStatus(user['id'], 'blocked')),
-              _smallBtn('Eliminar', Icons.delete, Colors.red, () => _confirmDelete(user)),
+                  ? _smallBtn('Activar', Icons.check_circle, CoupTheme.poison, () => _setStatus(user['id'], 'active'))
+                  : _smallBtn('Bloquear', Icons.block, CoupTheme.blood, () => _setStatus(user['id'], 'blocked')),
+              _smallBtn('Eliminar', Icons.delete_outline, CoupTheme.blood, () => _confirmDelete(user)),
             ],
           ),
         ],
@@ -187,16 +192,20 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Widget _smallBtn(String label, IconData icon, Color color, VoidCallback onTap) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 14),
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color.withOpacity(0.2),
-        foregroundColor: color,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.5)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+        ]),
       ),
     );
   }
@@ -205,13 +214,14 @@ class _AdminScreenState extends State<AdminScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        backgroundColor: const Color(0xFF1a1d27),
-        title: Text('Rol de ${user['username']}', style: const TextStyle(color: Colors.white)),
+        backgroundColor: CoupTheme.burgundyPanel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: CoupTheme.gold)),
+        title: Text('Rol de ${user['username']}', style: const TextStyle(color: CoupTheme.parchment)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: ['Free', 'Pro', 'Admin'].map((r) => ListTile(
-            title: Text(r, style: const TextStyle(color: Colors.white)),
-            trailing: user['role'] == r ? const Icon(Icons.check, color: Colors.amber) : null,
+            title: Text(r, style: const TextStyle(color: CoupTheme.parchment)),
+            trailing: user['role'] == r ? const Icon(Icons.check, color: CoupTheme.goldBright) : null,
             onTap: () async {
               Navigator.pop(dialogCtx);
               await _doUpdate(user['id'], role: r);
@@ -226,11 +236,12 @@ class _AdminScreenState extends State<AdminScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        backgroundColor: const Color(0xFF1a1d27),
-        title: const Text('Eliminar usuario?', style: TextStyle(color: Colors.white)),
-        content: Text('Se eliminara a ${user['username']} permanentemente.', style: const TextStyle(color: Colors.white70)),
+        backgroundColor: CoupTheme.burgundyPanel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: CoupTheme.gold)),
+        title: const Text('¿Eliminar usuario?', style: TextStyle(color: CoupTheme.parchment)),
+        content: Text('Se eliminará a ${user['username']} permanentemente.', style: const TextStyle(color: CoupTheme.parchmentDim)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancelar', style: TextStyle(color: CoupTheme.parchmentDim))),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogCtx);
@@ -241,7 +252,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 _showSnack(e.toString().replaceAll('Exception: ', ''));
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: CoupTheme.blood),
             child: const Text('Eliminar'),
           ),
         ],
