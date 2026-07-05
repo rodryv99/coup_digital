@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/game_provider.dart';
@@ -134,7 +135,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 border: Border.all(color: Colors.amber.withOpacity(0.5)),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.person, color: Colors.amber, size: 14),
+                Builder(builder: (_) {
+                  String? myAvatar;
+                  try {
+                    myAvatar = state.players.firstWhere((p) => p.userId == notifier.userId).avatar;
+                  } catch (_) {}
+                  final imgp = _avatarOf(myAvatar);
+                  return imgp != null
+                      ? CircleAvatar(radius: 9, backgroundImage: imgp)
+                      : const Icon(Icons.person, color: Colors.amber, size: 14);
+                }),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(notifier.username ?? '',
@@ -172,7 +182,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     return Column(
       children: [
         SizedBox(
-          height: 192,
+          height: 224,
           child: _buildOpponents(state, notifier),
         ),
         _buildFeedStrip(state),
@@ -180,8 +190,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                if (state.phase == 'awaiting_reaction' || state.phase == 'awaiting_block_reaction')
-                  _buildReactionZone(state, notifier),
                 if (mustChooseInfluence)
                   Container(
                     margin: const EdgeInsets.all(8),
@@ -238,6 +246,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isCurrentTurn) const Icon(Icons.arrow_downward, color: Colors.amber, size: 14),
+          CircleAvatar(
+            radius: 15,
+            backgroundColor: const Color(0xFF1a1d27),
+            backgroundImage: _avatarOf(player.avatar),
+            child: _avatarOf(player.avatar) == null
+                ? const Icon(Icons.person, color: Colors.white38, size: 16)
+                : null,
+          ),
+          const SizedBox(height: 3),
           Text(player.username,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -304,63 +321,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
-  Widget _buildReactionZone(PublicGameState state, GameNotifier notifier) {
-    final isActor = state.pendingAction?.actorId == notifier.userId;
-    final isBlocker = state.pendingBlock?.blockerId == notifier.userId;
-    final alreadyPassed = state.passedPlayers.contains(notifier.userId);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2a1a00),
-        border: Border.all(color: Colors.orange),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (state.phase == 'awaiting_reaction' && state.pendingAction != null) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _miniCardForCard(CardType.cardForAction(state.pendingAction!.action)),
-                Expanded(child: _reactionLabel(state, notifier)),
-              ],
-            ),
-            const SizedBox(height: 6),
-            if (isActor)
-              const Text('Esperando reacciones de otros jugadores...', style: TextStyle(color: Colors.white54, fontSize: 13))
-            else if (alreadyPassed)
-              const Text('Ya pasaste. Esperando al resto...', style: TextStyle(color: Colors.greenAccent, fontSize: 13))
-            else
-              const Text('Responde con los botones de abajo', style: TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold)),
-          ],
-          if (state.phase == 'awaiting_block_reaction' && state.pendingBlock != null) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _miniCardForCard(state.pendingBlock!.claimedCard),
-                Expanded(
-                  child: Builder(builder: (_) {
-                    final ct = CardType.fromBackend(state.pendingBlock!.claimedCard);
-                    return Text('${_playerName(state, state.pendingBlock!.blockerId)} bloquea con ${ct?.displayName ?? state.pendingBlock!.claimedCard}',
-                        style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold));
-                  }),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            if (isActor)
-              const Text('Responde con los botones de abajo', style: TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold))
-            else if (!isBlocker)
-              const Text('El actor decidira si acepta o desafia el bloqueo.', style: TextStyle(color: Colors.white54, fontSize: 13)),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildExchangeZone(PrivateHand hand, GameNotifier notifier) {
     final pool = [...hand.influences, ...hand.pendingExchange!];
     _exchangeKeepCount = hand.influences.length;
@@ -417,109 +377,203 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   Widget _buildMyZone(PublicGameState state, PlayerPublicState me, PrivateHand? hand, GameNotifier notifier, bool mustChooseInfluence) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: const BoxDecoration(
         color: Color(0xFF1a1d27),
         border: Border(top: BorderSide(color: Color(0xFF2a2d37))),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              const Text('Mis cartas', style: TextStyle(color: Colors.white70, fontSize: 13)),
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 12,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF252830),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 620;
+        final cardW = narrow ? 96.0 : 130.0;
+        final cardH = cardW * 10 / 7;
+
+        final left = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8, runSpacing: 4,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(20)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.monetization_on, color: Colors.amber, size: 22),
+                    const SizedBox(width: 5),
+                    Text('${me.coins}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 19)),
+                  ]),
+                ),
+                GestureDetector(
+                  onTap: () => setState(() => _cardsHidden = !_cardsHidden),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(8)),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.monetization_on, color: Colors.amber, size: 26),
-                      const SizedBox(width: 6),
-                      Text('${me.coins}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 22)),
+                      Icon(_cardsHidden ? Icons.visibility_off : Icons.visibility, color: Colors.white54, size: 16),
+                      const SizedBox(width: 4),
+                      Text(_cardsHidden ? 'Mostrar' : 'Ocultar', style: const TextStyle(color: Colors.white54, fontSize: 12)),
                     ]),
                   ),
-                  GestureDetector(
-                    onTap: () => setState(() => _cardsHidden = !_cardsHidden),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(8)),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(_cardsHidden ? Icons.visibility_off : Icons.visibility, color: Colors.white54, size: 18),
-                        const SizedBox(width: 4),
-                        Text(_cardsHidden ? 'Mostrar' : 'Ocultar', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                      ]),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (mustChooseInfluence)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text('Toca la carta que quieres perder',
-                  style: TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold)),
-            ),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            if (hand != null)
-              ...hand.influences.map((c) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CardWidget(
-                  cardName: c,
-                  faceDown: _cardsHidden && !mustChooseInfluence,
-                  width: 140, height: 200,
-                  onTap: mustChooseInfluence
-                      ? () => _confirmLoseCard(c, notifier)
-                      : null,
                 ),
-              ))
-            else
-              ...List.generate(me.influenceCount, (_) => const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: CardWidget(cardName: 'back', faceDown: true, width: 140, height: 200),
-              )),
-          ]),
-          const SizedBox(height: 12),
-          ..._buildReactionControls(state, me, notifier),
-          if (notifier.isMyTurn && state.phase == 'awaiting_action')
-            _buildActionButtons(state, me, notifier)
-          else if (!me.eliminated && state.phase == 'awaiting_action')
-            Text('Turno de ${state.currentPlayer?.username ?? '...'}',
-                style: const TextStyle(color: Colors.white54, fontSize: 13))
-          else if (me.eliminated)
-            const Text('Has sido eliminado', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-          if (_pendingAction != null)
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFF2a1a00), borderRadius: BorderRadius.circular(8)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Flexible(child: Text('${accionEnEspanol(_pendingAction!)}: selecciona objetivo arriba',
-                    style: const TextStyle(color: Colors.orange, fontSize: 12))),
-                const SizedBox(width: 8),
-                GestureDetector(onTap: () => setState(() => _pendingAction = null), child: const Icon(Icons.close, color: Colors.white54, size: 16)),
-              ]),
+              ],
             ),
-        ],
-      ),
+            if (mustChooseInfluence)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text('Toca la carta que quieres perder',
+                    style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center),
+              ),
+            const SizedBox(height: 8),
+            Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+              if (hand != null)
+                ...hand.influences.map((c) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  child: CardWidget(
+                    cardName: c,
+                    faceDown: _cardsHidden && !mustChooseInfluence,
+                    width: cardW, height: cardH,
+                    onTap: mustChooseInfluence ? () => _confirmLoseCard(c, notifier) : null,
+                  ),
+                ))
+              else
+                ...List.generate(me.influenceCount, (_) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  child: CardWidget(cardName: 'back', faceDown: true, width: cardW, height: cardH),
+                )),
+            ]),
+          ],
+        );
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(flex: narrow ? 5 : 6, child: left),
+            const SizedBox(width: 8),
+            Expanded(flex: narrow ? 5 : 4, child: _bottomRightPanel(state, me, notifier)),
+          ],
+        );
+      }),
     );
+  }
+
+  // Panel inferior derecho: muestra la situacion actual (a que estas respondiendo)
+  // y debajo los botones en vertical, siempre visibles.
+  Widget _bottomRightPanel(PublicGameState state, PlayerPublicState me, GameNotifier notifier) {
+    final children = <Widget>[];
+
+    Widget info(Widget content, {Color border = Colors.orange}) => Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2a1a00),
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: content,
+    );
+
+    Widget fullBtn(String label, Color color, VoidCallback? onTap) => Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: SizedBox(width: double.infinity, child: _reactionBtn(label, color, onTap)),
+    );
+
+    if (me.eliminated) {
+      children.add(info(const Text('Has sido eliminado',
+          style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), border: Colors.redAccent));
+    } else if (state.phase == 'awaiting_reaction' && state.pendingAction != null) {
+      final isActor = state.pendingAction!.actorId == notifier.userId;
+      final alreadyPassed = state.passedPlayers.contains(notifier.userId);
+      children.add(info(Row(children: [
+        _miniCardForCard(CardType.cardForAction(state.pendingAction!.action)),
+        Expanded(child: _reactionLabel(state, notifier)),
+      ])));
+      if (isActor) {
+        children.add(const Text('Esperando reacciones de otros jugadores...',
+            style: TextStyle(color: Colors.white54, fontSize: 12)));
+      } else {
+        if (['tax', 'assassinate', 'steal', 'exchange'].contains(state.pendingAction!.action)) {
+          children.add(fullBtn('Desafiar', Colors.red, alreadyPassed ? null : notifier.challenge));
+        }
+        children.addAll(_blockButtonsFull(state.pendingAction!.action, notifier, alreadyPassed));
+        children.add(fullBtn(alreadyPassed ? 'Pasaste' : 'Pasar', Colors.blueGrey,
+            alreadyPassed ? null : notifier.pass));
+      }
+    } else if (state.phase == 'awaiting_block_reaction' && state.pendingBlock != null) {
+      final isActor = state.pendingAction?.actorId == notifier.userId;
+      final ct = CardType.fromBackend(state.pendingBlock!.claimedCard);
+      children.add(info(Row(children: [
+        _miniCardForCard(state.pendingBlock!.claimedCard),
+        Expanded(child: Text(
+          '${_playerName(state, state.pendingBlock!.blockerId)} bloquea con ${ct?.displayName ?? state.pendingBlock!.claimedCard}',
+          style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13))),
+      ])));
+      if (isActor) {
+        children.add(fullBtn('Desafiar bloqueo', Colors.red, notifier.challengeBlock));
+        children.add(fullBtn('Aceptar bloqueo', Colors.blueGrey, notifier.acceptBlock));
+      } else {
+        children.add(const Text('El actor decidira si acepta o desafia el bloqueo.',
+            style: TextStyle(color: Colors.white54, fontSize: 12)));
+      }
+    } else if (state.phase == 'awaiting_action') {
+      if (notifier.isMyTurn) {
+        children.add(info(const Text('Tu turno: elige una accion',
+            style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 13)), border: Colors.amber));
+        children.add(_buildActionButtons(state, me, notifier));
+      } else {
+        children.add(info(Text('Turno de ${state.currentPlayer?.username ?? '...'}',
+            style: const TextStyle(color: Colors.white70, fontSize: 13)), border: Colors.white24));
+      }
+    }
+
+    if (_pendingAction != null) {
+      children.add(Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: const Color(0xFF2a1a00), borderRadius: BorderRadius.circular(8)),
+        child: Row(children: [
+          Flexible(child: Text('${accionEnEspanol(_pendingAction!)}: selecciona objetivo arriba',
+              style: const TextStyle(color: Colors.orange, fontSize: 11))),
+          const SizedBox(width: 6),
+          GestureDetector(onTap: () => setState(() => _pendingAction = null),
+              child: const Icon(Icons.close, color: Colors.white54, size: 16)),
+        ]),
+      ));
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    );
+  }
+
+  List<Widget> _blockButtonsFull(String action, GameNotifier notifier, bool disabled) {
+    const blockCards = {
+      'foreign_aid': ['Duke'],
+      'assassinate': ['Contessa'],
+      'steal': ['Captain', 'Ambassador'],
+    };
+    final cards = blockCards[action] ?? [];
+    return cards.map<Widget>((card) {
+      final ct = CardType.fromBackend(card);
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: SizedBox(
+          width: double.infinity,
+          child: _reactionBtn('Bloquear (${ct?.displayName ?? card})', Colors.orange,
+              disabled ? null : () => notifier.block(card)),
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildActionButtons(PublicGameState state, PlayerPublicState me, GameNotifier notifier) {
     final actions = [
       ('income', 'Ingresos +1', Icons.attach_money, false),
-      ('foreign_aid', 'Ayuda Exterior +2', Icons.handshake, false),
+      ('foreign_aid', 'Ayuda Ext. +2', Icons.handshake, false),
       ('tax', 'Impuestos +3', Icons.account_balance, false),
       ('exchange', 'Intercambio', Icons.swap_horiz, false),
       ('steal', 'Robar', Icons.remove_circle, true),
@@ -527,30 +581,38 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       ('coup', 'Golpe (7)', Icons.flash_on, true),
     ];
 
-    return Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: actions.map((a) {
-      final (action, label, icon, needsTarget) = a;
-      final disabled = me.eliminated ||
-          (action == 'coup' && me.coins < 7) ||
-          (action == 'assassinate' && me.coins < 3) ||
-          (me.coins >= 10 && action != 'coup');
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 6,
+      crossAxisSpacing: 6,
+      childAspectRatio: 3.0,
+      children: actions.map((a) {
+        final (action, label, icon, needsTarget) = a;
+        final disabled = me.eliminated ||
+            (action == 'coup' && me.coins < 7) ||
+            (action == 'assassinate' && me.coins < 3) ||
+            (me.coins >= 10 && action != 'coup');
 
-      return ElevatedButton.icon(
-        onPressed: disabled ? null : () {
-          if (needsTarget) {
-            setState(() => _pendingAction = action);
-          } else {
-            notifier.declareAction(action);
-          }
-        },
-        icon: Icon(icon, size: 14),
-        label: Text(label, style: const TextStyle(fontSize: 11)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF8e44ad), foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
-    }).toList());
+        return ElevatedButton.icon(
+          onPressed: disabled ? null : () {
+            if (needsTarget) {
+              setState(() => _pendingAction = action);
+            } else {
+              notifier.declareAction(action);
+            }
+          },
+          icon: Icon(icon, size: 13),
+          label: FittedBox(fit: BoxFit.scaleDown, child: Text(label, style: const TextStyle(fontSize: 11))),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF8e44ad), foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   Widget _reactionLabel(PublicGameState state, GameNotifier notifier) {
@@ -584,43 +646,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       final ct = CardType.fromBackend(card);
       return _reactionBtn('Bloquear (${ct?.displayName ?? card})', Colors.orange, disabled ? null : () => notifier.block(card));
     }).toList();
-  }
-
-  // Botones de reaccion en la zona inferior fija: siempre visibles y faciles de tocar.
-  List<Widget> _buildReactionControls(PublicGameState state, PlayerPublicState me, GameNotifier notifier) {
-    if (me.eliminated) return [];
-
-    // Reaccionar a una accion declarada (desafiar / bloquear / pasar)
-    if (state.phase == 'awaiting_reaction' && state.pendingAction != null) {
-      final isActor = state.pendingAction!.actorId == notifier.userId;
-      if (isActor) return [];
-      final alreadyPassed = state.passedPlayers.contains(notifier.userId);
-      return [
-        Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
-          if (['tax', 'assassinate', 'steal', 'exchange'].contains(state.pendingAction!.action))
-            _reactionBtn('Desafiar', Colors.red, alreadyPassed ? null : notifier.challenge),
-          ..._blockButtons(state.pendingAction!.action, notifier, alreadyPassed),
-          _reactionBtn(alreadyPassed ? 'Pasaste' : 'Pasar', Colors.blueGrey,
-              alreadyPassed ? null : notifier.pass),
-        ]),
-        const SizedBox(height: 10),
-      ];
-    }
-
-    // El actor decide sobre un bloqueo (desafiar bloqueo / aceptar)
-    if (state.phase == 'awaiting_block_reaction' && state.pendingBlock != null) {
-      final isActor = state.pendingAction?.actorId == notifier.userId;
-      if (!isActor) return [];
-      return [
-        Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
-          _reactionBtn('Desafiar bloqueo', Colors.red, notifier.challengeBlock),
-          _reactionBtn('Aceptar bloqueo', Colors.blueGrey, notifier.acceptBlock),
-        ]),
-        const SizedBox(height: 10),
-      ];
-    }
-
-    return [];
   }
 
   Widget _reactionBtn(String label, Color color, VoidCallback? onTap) {
@@ -763,6 +788,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         ),
       ),
     );
+  }
+
+  ImageProvider? _avatarOf(String? avatar) {
+    if (avatar == null || avatar.isEmpty) return null;
+    try {
+      final b64 = avatar.contains(',') ? avatar.split(',').last : avatar;
+      return MemoryImage(base64Decode(b64));
+    } catch (_) {
+      return null;
+    }
   }
 
   String _playerName(PublicGameState state, String userId) {

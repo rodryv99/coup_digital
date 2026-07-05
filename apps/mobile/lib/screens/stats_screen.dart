@@ -58,7 +58,7 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
                       icon: const Icon(Icons.arrow_back, color: CoupTheme.parchmentDim),
                       onPressed: () => Navigator.pop(context),
                     ),
-                    Text('Mi perfil', style: CoupTheme.titleMedium),
+                    Text('Estadísticas', style: CoupTheme.titleMedium),
                   ],
                 ),
               ),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/game_provider.dart';
@@ -73,8 +74,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               onPressed: () => Navigator.pushNamed(context, '/admin'),
             ),
           IconButton(
+            icon: const Icon(Icons.account_circle, color: CoupTheme.goldBright),
+            tooltip: 'Mi cuenta',
+            onPressed: () => Navigator.pushNamed(context, '/profile'),
+          ),
+          IconButton(
             icon: const Icon(Icons.bar_chart, color: CoupTheme.goldBright),
-            tooltip: 'Mi perfil',
+            tooltip: 'Estadisticas',
             onPressed: () => Navigator.pushNamed(context, '/stats'),
           ),
           IconButton(
@@ -261,15 +267,28 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     ),
                   ),
                   child: Row(children: [
-                    Container(
-                      width: 38, height: 38,
-                      decoration: BoxDecoration(
-                        color: CoupTheme.ink.withOpacity(0.5),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: isHost ? CoupTheme.goldBright : CoupTheme.goldDark.withOpacity(0.6)),
-                      ),
-                      child: Icon(isHost ? Icons.workspace_premium : Icons.person, color: isHost ? CoupTheme.goldBright : CoupTheme.parchmentDim, size: 20),
-                    ),
+                    Builder(builder: (_) {
+                      ImageProvider? imgp;
+                      final av = p['avatar'] as String?;
+                      if (av != null && av.isNotEmpty) {
+                        try {
+                          imgp = MemoryImage(base64Decode(av.contains(',') ? av.split(',').last : av));
+                        } catch (_) {}
+                      }
+                      return Container(
+                        width: 38, height: 38,
+                        decoration: BoxDecoration(
+                          color: CoupTheme.ink.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: isHost ? CoupTheme.goldBright : CoupTheme.goldDark.withOpacity(0.6)),
+                          image: imgp != null ? DecorationImage(image: imgp, fit: BoxFit.cover) : null,
+                        ),
+                        child: imgp == null
+                            ? Icon(isHost ? Icons.workspace_premium : Icons.person,
+                                color: isHost ? CoupTheme.goldBright : CoupTheme.parchmentDim, size: 20)
+                            : null,
+                      );
+                    }),
                     const SizedBox(width: 12),
                     Text(p['username'] ?? '', style: const TextStyle(color: CoupTheme.parchment, fontSize: 16, fontWeight: FontWeight.w600)),
                     if (isMe) Text(' (tú)', style: CoupTheme.label),

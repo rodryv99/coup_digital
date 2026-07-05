@@ -88,7 +88,7 @@ export class CoupEngine {
 
     // Income y Coup son inmediatos
     if (action === ActionType.Income) {
-      actor.coins += 1;
+      actor.coins = Math.min(10, actor.coins + 1);
       this.log(state, actor.userId, 'income', 'Ingresos: +1 moneda');
       return this.advanceTurn(state);
     }
@@ -393,12 +393,12 @@ export class CoupEngine {
 
     switch (pending.action) {
       case ActionType.ForeignAid:
-        actor.coins += 2;
+        actor.coins = Math.min(10, actor.coins + 2);
         this.log(state, actor.userId, 'foreign_aid', 'Ayuda Exterior: +2 monedas');
         break;
 
       case ActionType.Tax:
-        actor.coins += 3;
+        actor.coins = Math.min(10, actor.coins + 3);
         this.log(state, actor.userId, 'tax', 'Impuestos: +3 monedas');
         break;
 
@@ -407,7 +407,7 @@ export class CoupEngine {
         if (!target.eliminated) {
           const stolen = Math.min(2, target.coins);
           target.coins -= stolen;
-          actor.coins += stolen;
+          actor.coins = Math.min(10, actor.coins + stolen);
           this.log(state, actor.userId, 'steal',
             `Robó ${stolen} moneda(s) a ${target.username}`, target.userId);
         }
