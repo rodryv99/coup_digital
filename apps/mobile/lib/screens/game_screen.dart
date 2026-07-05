@@ -377,59 +377,30 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   Widget _buildMyZone(PublicGameState state, PlayerPublicState me, PrivateHand? hand, GameNotifier notifier, bool mustChooseInfluence) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.fromLTRB(8, 10, 10, 10),
       decoration: const BoxDecoration(
         color: Color(0xFF1a1d27),
         border: Border(top: BorderSide(color: Color(0xFF2a2d37))),
       ),
       child: LayoutBuilder(builder: (context, constraints) {
         final narrow = constraints.maxWidth < 620;
-        final cardW = narrow ? 96.0 : 130.0;
+        final cardW = narrow ? 92.0 : 150.0;
         final cardH = cardW * 10 / 7;
 
-        final left = Column(
+        final cards = Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Wrap(
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8, runSpacing: 4,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(20)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.monetization_on, color: Colors.amber, size: 22),
-                    const SizedBox(width: 5),
-                    Text('${me.coins}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 19)),
-                  ]),
-                ),
-                GestureDetector(
-                  onTap: () => setState(() => _cardsHidden = !_cardsHidden),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                    decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(8)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(_cardsHidden ? Icons.visibility_off : Icons.visibility, color: Colors.white54, size: 16),
-                      const SizedBox(width: 4),
-                      Text(_cardsHidden ? 'Mostrar' : 'Ocultar', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                    ]),
-                  ),
-                ),
-              ],
-            ),
             if (mustChooseInfluence)
               const Padding(
-                padding: EdgeInsets.only(top: 6),
+                padding: EdgeInsets.only(bottom: 6),
                 child: Text('Toca la carta que quieres perder',
                     style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center),
               ),
-            const SizedBox(height: 8),
-            Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
               if (hand != null)
                 ...hand.influences.map((c) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  padding: const EdgeInsets.only(right: 8),
                   child: CardWidget(
                     cardName: c,
                     faceDown: _cardsHidden && !mustChooseInfluence,
@@ -439,19 +410,49 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 ))
               else
                 ...List.generate(me.influenceCount, (_) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  padding: const EdgeInsets.only(right: 8),
                   child: CardWidget(cardName: 'back', faceDown: true, width: cardW, height: cardH),
                 )),
             ]),
           ],
         );
 
+        final middle = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.monetization_on, color: Colors.amber, size: 20),
+                const SizedBox(width: 4),
+                Text('${me.coins}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 18)),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => setState(() => _cardsHidden = !_cardsHidden),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                decoration: BoxDecoration(color: const Color(0xFF252830), borderRadius: BorderRadius.circular(8)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(_cardsHidden ? Icons.visibility_off : Icons.visibility, color: Colors.white54, size: 15),
+                  const SizedBox(width: 4),
+                  Text(_cardsHidden ? 'Mostrar' : 'Ocultar', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                ]),
+              ),
+            ),
+          ],
+        );
+
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(flex: narrow ? 5 : 6, child: left),
+            cards,
             const SizedBox(width: 8),
-            Expanded(flex: narrow ? 5 : 4, child: _bottomRightPanel(state, me, notifier)),
+            middle,
+            const SizedBox(width: 10),
+            Expanded(child: _bottomRightPanel(state, me, notifier)),
           ],
         );
       }),
@@ -581,13 +582,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       ('coup', 'Golpe (7)', Icons.flash_on, true),
     ];
 
-    return GridView.count(
+    return LayoutBuilder(builder: (context, box) {
+      final cols = box.maxWidth < 230 ? 1 : 2;
+      return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
+      crossAxisCount: cols,
       mainAxisSpacing: 6,
       crossAxisSpacing: 6,
-      childAspectRatio: 3.0,
+      childAspectRatio: cols == 1 ? 4.6 : 3.0,
       children: actions.map((a) {
         final (action, label, icon, needsTarget) = a;
         final disabled = me.eliminated ||
@@ -613,6 +616,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         );
       }).toList(),
     );
+    });
   }
 
   Widget _reactionLabel(PublicGameState state, GameNotifier notifier) {
@@ -658,7 +662,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         minimumSize: const Size(64, 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+      child: FittedBox(fit: BoxFit.scaleDown, child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold))),
     );
   }
 

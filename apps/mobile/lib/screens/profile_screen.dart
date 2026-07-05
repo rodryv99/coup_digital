@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -63,29 +62,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickAvatar() async {
+    XFile? file;
     try {
-      final picker = ImagePicker();
-      final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600);
-      if (file == null) return;
+      file = await ImagePicker().pickImage(
+          source: ImageSource.gallery, maxWidth: 512, imageQuality: 85);
+    } catch (e) {
+      setState(() { _profileMsg = 'No se pudo abrir la galeria: $e'; _profileError = true; });
+      return;
+    }
+    if (file == null) return;
 
+    try {
       final bytes = await file.readAsBytes();
+      String dataUrl;
       final decoded = img.decodeImage(bytes);
-      if (decoded == null) {
-        setState(() { _profileMsg = 'No se pudo leer la imagen'; _profileError = true; });
+      if (decoded != null) {
+        // Recorte cuadrado centrado + reduccion a 128px (~10-15KB)
+        final side = decoded.width < decoded.height ? decoded.width : decoded.height;
+        final cropped = img.copyCrop(decoded,
+            x: (decoded.width - side) ~/ 2, y: (decoded.height - side) ~/ 2,
+            width: side, height: side);
+        final small = img.copyResize(cropped, width: 128, height: 128);
+        dataUrl = 'data:image/jpeg;base64,${base64Encode(img.encodeJpg(small, quality: 82))}';
+      } else if (bytes.length <= 150000) {
+        // Respaldo: si no se pudo decodificar pero es liviana, se usa tal cual
+        dataUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } else {
+        setState(() { _profileMsg = 'Formato de imagen no soportado'; _profileError = true; });
         return;
       }
-      // Recorte cuadrado centrado + reduccion a 128px: queda liviana (~10-15KB)
-      final side = decoded.width < decoded.height ? decoded.width : decoded.height;
-      final cropped = img.copyCrop(decoded,
-          x: (decoded.width - side) ~/ 2, y: (decoded.height - side) ~/ 2,
-          width: side, height: side);
-      final small = img.copyResize(cropped, width: 128, height: 128);
-      final jpg = img.encodeJpg(small, quality: 82);
-      final dataUrl = 'data:image/jpeg;base64,${base64Encode(Uint8List.fromList(jpg))}';
-
       setState(() { _avatar = dataUrl; _profileMsg = null; });
     } catch (e) {
-      setState(() { _profileMsg = 'Error al elegir imagen'; _profileError = true; });
+      setState(() { _profileMsg = 'Error al procesar la imagen: $e'; _profileError = true; });
     }
   }
 

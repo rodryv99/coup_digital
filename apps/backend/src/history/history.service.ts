@@ -19,7 +19,7 @@ export class HistoryService {
       .innerJoin('room_players', 'rp', 'rp.room_id = game.room_id')
       .where('rp.user_id = :userId', { userId })
       .andWhere('game.finished_at IS NOT NULL')
-      .orderBy('game.finished_at', 'DESC')
+      .orderBy('game.finishedAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
